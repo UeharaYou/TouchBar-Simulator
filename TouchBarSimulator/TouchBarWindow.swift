@@ -21,6 +21,9 @@ final class TouchBarWindow: NSPanel, NSWindowDelegate {
     override var canBecomeMain: Bool { false }
     override var canBecomeKey: Bool { false }
     
+    // Property that holds the last screen the window is on
+    // private var lastScreen: NSScreen? = nil
+    
     // Properties & delegates func for handling Window Close
     private var isClosed: Bool {
         get {
@@ -37,7 +40,7 @@ final class TouchBarWindow: NSPanel, NSWindowDelegate {
     }
     private var isCloseNoted = false
     internal func windowWillClose(_ notification: Notification) {
-        stopAllAnimations(fastForward: true) // Fast forward all animations to the end
+        stopAnimations(fastForward: true) // Fast forward all animations to the end
         isCloseNoted = true
     }
     
@@ -55,15 +58,17 @@ final class TouchBarWindow: NSPanel, NSWindowDelegate {
             switch (oldValue, docking) {
             case (_, .floating):
                 hasTitle = true
-                moveWithAnimation(destination: destinationFrame(docking, hiding))
-                fadeWithAnimation(destination: 1.0)
+                startAnimations(duration: 0.35, animation:
+                                    moveAnimation(destination: destinationFrame(docking, hiding)) +
+                                fadeAnimation(destination: 1.0)
+                )
                 renewretainingUpdateDeadline(infinite: true)
             case (.floating, .dockedToTop), (.floating, .dockedToBottom):
                 Defaults[.lastFloatingPosition] = frame.origin
                 fallthrough
             case (_, _):
                 hasTitle = false
-                moveWithAnimation(destination: destinationFrame(docking, hiding))
+                startAnimations(duration: 0.35, animation: moveAnimation(destination: destinationFrame(docking, hiding, inScreen: NSScreen.atMouseLocation)))
                 renewretainingUpdateDeadline(infinite: false)
                 break
             }
@@ -77,12 +82,16 @@ final class TouchBarWindow: NSPanel, NSWindowDelegate {
                 hiding = false
                 break
             case (_, true) where oldValue != hiding:
-                moveWithAnimation(destination: destinationFrame(docking, hiding))
-                fadeWithAnimation(destination: 0.0) // FIXME: set alpha value all the way to 0 causes window to re-layout (no more boarders!)
+                startAnimations(duration: 0.35, animation:
+                                    moveAnimation(destination: destinationFrame(docking, hiding, inScreen: screen)) +
+                                fadeAnimation(destination: 0.0) // FIXME: set alpha value all the way to 0 causes window to re-layout (no more boarders!)
+                )
             case (_, false) where oldValue != hiding:
-                setFrame(destinationFrame(docking, oldValue), display: true) // FIXME: might be glitchy, move start first
-                moveWithAnimation(destination: destinationFrame(docking, hiding))
-                fadeWithAnimation(destination: 1.0)
+                setFrame(destinationFrame(docking, oldValue, inScreen: NSScreen.atMouseLocation), display: true) // FIXME: might be glitchy, move start first
+                startAnimations(duration: 0.35, animation:
+                                    moveAnimation(destination: destinationFrame(docking, hiding, inScreen: NSScreen.atMouseLocation)) +
+                                fadeAnimation(destination: 1.0)
+                )
             case (_, _):
                 break
             }
@@ -178,8 +187,8 @@ final class TouchBarWindow: NSPanel, NSWindowDelegate {
         return detectionRectArray
     }
     private var isMouseDetected: Bool {
-        NSLog("\(NSScreen.screens.map{return $0.visibleFrame}), \(detectionRects)")
-        NSLog("\(NSEvent.mouseLocation), \(detectionRects.contains{$0.contains(NSEvent.mouseLocation)})")
+        //NSLog("\(NSScreen.screens.map{return $0.visibleFrame}), \(detectionRects)")
+        //NSLog("\(NSEvent.mouseLocation), \(detectionRects.contains{$0.contains(NSEvent.mouseLocation)})")
         return detectionRects.contains{$0.contains(NSEvent.mouseLocation)}
     }
     
@@ -188,19 +197,24 @@ final class TouchBarWindow: NSPanel, NSWindowDelegate {
     private func renewretainingUpdateDeadline(infinite: Bool) {
         retainingUpdateDeadline = infinite ? .distantFuture : Date() + Defaults[.windowDetectionTimeOut]
     }
-    private func cyclicalUpdateHandler() {
+    private func handleCyclicalUpdate() {
         let shouldHandleResize = isLiveResizeUnhandled && !inLiveResize
         switch (docking, hiding) {
         case (.floating, _):
             break
         case (.dockedToTop, _), (.dockedToBottom, _):
             if isMouseDetected {
-                hiding = false
+                if hiding == true {
+                    hiding = false
+                }
+                else if screen != NSScreen.atMouseLocation {
+                    startAnimations(duration: 0.45, animation: teleportAnimation(destination: destinationFrame(docking, hiding, inScreen: NSScreen.atMouseLocation)))
+                }
                 renewretainingUpdateDeadline(infinite: false)
             }
             else if shouldHandleResize {
                 isLiveResizeUnhandled = false
-                moveWithAnimation(destination: destinationFrame(docking, hiding))
+                startAnimations(duration: 0.35, animation: moveAnimation(destination: destinationFrame(docking, hiding, inScreen: screen))) // FIXME: move, 0.35; tele, 0.45
                 renewretainingUpdateDeadline(infinite: false)
             }
             else if Date() >= retainingUpdateDeadline {
@@ -305,17 +319,28 @@ final class TouchBarWindow: NSPanel, NSWindowDelegate {
     }
     
     // Members & funcs for Animation
-    private let windowMoveAnimation = TouchBarAnimation(duration: 0.35, animationCurve: .easeInOut, blockMode: .nonblocking)
-    private let windowFadeAnimation = TouchBarAnimation(duration: 0.35, animationCurve: .easeInOut, blockMode: .nonblocking)
-    private func moveWithAnimation(destination endFrame: CGRect) {
-        windowMoveAnimation.animation = {(startFrame, endFrame) in
+    private let windowAnimator = TouchBarAnimation(duration: 0, animationCurve: .easeInOut, blockMode: .nonblocking)
+    private func startAnimations(duration: TimeInterval, animation: @escaping TouchBarAnimation.AnimationFunc) {
+        windowAnimator.duration = duration
+        windowAnimator.animation = animation
+        windowAnimator.start()
+    }
+    private func stopAnimations(fastForward: Bool = false) { // Setting `fastForward` to true skips all frames till the last one
+        if fastForward {
+            windowAnimator.currentProgress = 1.0
+        }
+        windowAnimator.stop()
+    }
+    
+    // Animation funcs
+    private func moveAnimation(destination endFrame: CGRect) -> TouchBarAnimation.AnimationFunc {
+        return {(startFrame, endFrame) in
             let dWidth = endFrame.size.width / startFrame.size.width - 1
             let dHeight = endFrame.size.width / startFrame.size.width - 1
             let centerX = startFrame.midX
             let centerY = startFrame.midY
             let dX = endFrame.midX - startFrame.midX
             let dY = endFrame.midY - startFrame.midY
-            
             let scaleTranslateTransform = {(t: CGFloat) in
                 return CGAffineTransform.identity
                 // Step 1: Scaling transform with mid point as origin
@@ -339,61 +364,83 @@ final class TouchBarWindow: NSPanel, NSWindowDelegate {
                     self?.setFrame(currentFrame, display: true)
                 }
             }}(frame, endFrame)
-        windowMoveAnimation.start()
     }
-    private func fadeWithAnimation(destination endValue: CGFloat) {
-        windowFadeAnimation.animation = {(startValue, endValue) in
+    private func fadeAnimation(destination endValue: CGFloat) -> TouchBarAnimation.AnimationFunc {
+        return {(startValue, endValue) in
             let dAlphaValue = endValue - startValue
-            let scaledValue = {(t: CGFloat) in return startValue + dAlphaValue * t}
+            let scaleValue = {(t: CGFloat) in return startValue + dAlphaValue * t}
+            
             return { [weak self] (currentProgress: Float, currentValue: Float) in
                 if currentProgress == 1.0 {
                     self?.alphaValue = endValue
                 }
                 else {
                     let t = CGFloat(currentValue)
-                    self?.alphaValue = scaledValue(t)
+                    self?.alphaValue = scaleValue(t)
                 }
             }}(alphaValue, endValue)
-        
-        windowFadeAnimation.start()
     }
-    private func stopAllAnimations(fastForward: Bool = false) { // Setting `fastForward` to true skips all frames till the last one
-        if fastForward {
-            windowMoveAnimation.currentProgress = 1.0
-            windowFadeAnimation.currentProgress = 1.0
-        }
-        windowMoveAnimation.stop()
-        windowFadeAnimation.stop()
+    private func teleportAnimation(destination endFrame: CGRect) -> TouchBarAnimation.AnimationFunc {
+        return {(savedAlphaValue, startFrame) in
+            let scaledValue = {(t: CGFloat) in return savedAlphaValue * abs(t * 2 - 1)}
+            let dy = frame.height
+            
+            let scaleTranslateTransform = {(t: CGFloat) in
+                return CGAffineTransform.identity
+                .translatedBy(x: 0, y: dy * (1 - abs(t * 2 - 1)))
+            }
+        
+            return { [weak self] (currentProgress: Float, currentValue: Float) in
+                if currentProgress == 1.0 {
+                    self?.alphaValue = savedAlphaValue
+                    self?.setFrame(endFrame, display: true)
+                }
+                else {
+                    let t = CGFloat(currentValue)
+                    
+                    let currentTransform = scaleTranslateTransform(t)
+                    if currentProgress <= 0.5 {
+                        let currentFrame = startFrame.applying(currentTransform)
+                        self?.setFrame(currentFrame, display: true)
+                    }
+                    else {
+                        let currentFrame = endFrame.applying(currentTransform)
+                        self?.setFrame(currentFrame, display: true)
+                    }
+                    
+                    self?.alphaValue = scaledValue(t)
+                }
+            }}(alphaValue, frame)
     }
     
     // Funcs for calculating Window Move Destination
-    private func destinationOrigin(_ forDocking: Docking, _ forHiding: Bool) -> CGPoint {
+    private func destinationOrigin(_ forDocking: Docking, _ forHiding: Bool, inScreen targetScreen: NSScreen? = NSScreen.main) -> CGPoint {
         let savedValue = Defaults[.lastFloatingPosition]
         switch(forDocking, forHiding) {
         case (.floating, _):
             return savedValue
         case (.dockedToTop, false):
-            return alignedOrigin(.center, .top)
+            return alignedOrigin(.center, .top, inScreen: targetScreen)
         case (.dockedToBottom, false):
-            return alignedOrigin(.center, .bottom)
+            return alignedOrigin(.center, .bottom, inScreen: targetScreen)
         case (.dockedToTop, true):
-            return alignedOrigin(.center, .topOut)
+            return alignedOrigin(.center, .topOut, inScreen: targetScreen)
         case (.dockedToBottom, true):
-            return alignedOrigin(.center, .bottomOut)
+            return alignedOrigin(.center, .bottomOut, inScreen: targetScreen)
         }
     }
-    private func destinationFrame(_ forDocking: Docking, _ forHiding: Bool) -> CGRect {
+    private func destinationFrame(_ forDocking: Docking, _ forHiding: Bool, inScreen targetScreen: NSScreen? = NSScreen.main) -> CGRect {
         switch(forDocking, forHiding) {
         case (.floating, _):
-            let savedFrame = CGRect(origin: destinationOrigin(forDocking, forHiding), size: CGSize(width: frame.width, height: frame.height))
+            let savedFrame = CGRect(origin: destinationOrigin(forDocking, forHiding, inScreen: targetScreen), size: CGSize(width: frame.width, height: frame.height))
             if NSScreen.screens.map({return $0.visibleFrame.contains(savedFrame)}).contains(true) {
                 return savedFrame
             }
             else {
-                return CGRect(origin: alignedOrigin(.center, .center), size: CGSize(width: frame.width, height: frame.height))
+                return CGRect(origin: alignedOrigin(.center, .center, inScreen: targetScreen), size: CGSize(width: frame.width, height: frame.height))
             }
         case (_, _):
-            return CGRect(origin: destinationOrigin(forDocking, forHiding), size: CGSize(width: frame.width, height: frame.height))
+            return CGRect(origin: destinationOrigin(forDocking, forHiding, inScreen: targetScreen), size: CGSize(width: frame.width, height: frame.height))
         }
     }
     
@@ -480,7 +527,7 @@ final class TouchBarWindow: NSPanel, NSWindowDelegate {
         
         // Add cyclicalObserver
         RunLoop.main.add(Timer(timeInterval: 0.5, repeats: true) { timer in
-            instance.cyclicalUpdateHandler()
+            instance.handleCyclicalUpdate()
         }, forMode: .default)
         
         controller.window = instance

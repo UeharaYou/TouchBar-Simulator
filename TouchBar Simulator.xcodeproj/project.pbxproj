@@ -31,6 +31,7 @@
 		FB3235352AC32A3E004A50A1 /* TouchBarContextMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB3235342AC32A3E004A50A1 /* TouchBarContextMenu.swift */; };
 		FB3235372AC32A8F004A50A1 /* String+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB3235362AC32A8F004A50A1 /* String+Extensions.swift */; };
 		FB6D83DB2AC4A08B00777DB8 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = FB6D83DA2AC4A08B00777DB8 /* Localizable.xcstrings */; };
+		FB89D7D42ACB76EC00CE02E6 /* NSScreen+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB89D7D32ACB76EC00CE02E6 /* NSScreen+Extensions.swift */; };
 		FBC3CF242AC46A5400279557 /* Globals.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB13F6732A88246400212F02 /* Globals.swift */; };
 		FBE131A02AC9C611002DA226 /* NSView+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBE1319F2AC9C611002DA226 /* NSView+Extensions.swift */; };
 		FBF7C67E2A9BD7F90069DDD2 /* TouchBarAnimation.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBF7C67D2A9BD7F90069DDD2 /* TouchBarAnimation.swift */; };
@@ -93,6 +94,7 @@
 		FB3235342AC32A3E004A50A1 /* TouchBarContextMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TouchBarContextMenu.swift; sourceTree = "<group>"; };
 		FB3235362AC32A8F004A50A1 /* String+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "String+Extensions.swift"; sourceTree = "<group>"; };
 		FB6D83DA2AC4A08B00777DB8 /* Localizable.xcstrings */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		FB89D7D32ACB76EC00CE02E6 /* NSScreen+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NSScreen+Extensions.swift"; sourceTree = "<group>"; };
 		FBE1319F2AC9C611002DA226 /* NSView+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NSView+Extensions.swift"; sourceTree = "<group>"; };
 		FBF7C67D2A9BD7F90069DDD2 /* TouchBarAnimation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TouchBarAnimation.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -200,6 +202,7 @@
 			isa = PBXGroup;
 			children = (
 				FB13F67C2A88259900212F02 /* Defaults+Extensions.swift */,
+				FB89D7D32ACB76EC00CE02E6 /* NSScreen+Extensions.swift */,
 				FB32352C2AC30175004A50A1 /* NSImage+Extensions.swift */,
 				FB13F67D2A88259900212F02 /* NSWindow+Extensions.swift */,
 				FB3235362AC32A8F004A50A1 /* String+Extensions.swift */,
@@ -363,6 +366,7 @@
 				FBF7C67E2A9BD7F90069DDD2 /* TouchBarAnimation.swift in Sources */,
 				FB3235372AC32A8F004A50A1 /* String+Extensions.swift in Sources */,
 				FB13F67F2A88259900212F02 /* NSWindow+Extensions.swift in Sources */,
+				FB89D7D42ACB76EC00CE02E6 /* NSScreen+Extensions.swift in Sources */,
 				FB13F6812A8825A500212F02 /* Utils.swift in Sources */,
 				FB13F67E2A88259900212F02 /* Defaults+Extensions.swift in Sources */,
 				FB32352B2AC2D598004A50A1 /* TouchBarView.swift in Sources */,
@@ -560,7 +564,7 @@
 				CODE_SIGN_ENTITLEMENTS = TouchBarSimulator/TouchBarSimulator.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 7;
+				CURRENT_PROJECT_VERSION = 8;
 				DEVELOPMENT_ASSET_PATHS = "\"TouchBarSimulator\"";
 				DEVELOPMENT_TEAM = 47HK3524RN;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -574,7 +578,7 @@
 				);
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
-				MARKETING_VERSION = 1.2.0;
+				MARKETING_VERSION = 1.2.0a;
 				PRODUCT_BUNDLE_IDENTIFIER = moe.ueharayou.TouchBarSimulator;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
@@ -600,7 +604,7 @@
 				CODE_SIGN_ENTITLEMENTS = TouchBarSimulator/TouchBarSimulator.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 7;
+				CURRENT_PROJECT_VERSION = 8;
 				DEVELOPMENT_ASSET_PATHS = "\"TouchBarSimulator\"";
 				DEVELOPMENT_TEAM = 47HK3524RN;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -614,7 +618,7 @@
 				);
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
-				MARKETING_VERSION = 1.2.0;
+				MARKETING_VERSION = 1.2.0a;
 				PRODUCT_BUNDLE_IDENTIFIER = moe.ueharayou.TouchBarSimulator;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_COMPILATION_MODE = wholemodule;

@@ -30,26 +30,10 @@ extension NSWindow {
         case bottomOut
     }
 
-    func alignedOrigin(_ xPositioning: ScreenXPositioning, _ yPositioning: ScreenYPositioning) -> CGPoint {
-        /*
-        guard let screen = NSScreen.main else {
-            return CGPoint(x: 0,y: 0)
-        }
-         */
-        
-        /*
-        guard let screen = NSScreen.screens.first(where: {
-            $0.frame.contains(NSEvent.mouseLocation)
-        })
+    func alignedOrigin(_ xPositioning: ScreenXPositioning, _ yPositioning: ScreenYPositioning, inScreen targetScreen: NSScreen? = NSScreen.main) -> CGPoint {
+        guard let screen = targetScreen, NSScreen.screens.contains(screen)
         else {
-            return CGPoint(x: 0,y: 0)
-        }
-        */
-
-        
-        guard let screen = NSScreen.screens.first
-        else {
-            return CGPoint(x: 0,y: 0)
+            return CGPoint(x: 0,y: 0) 
         }
         
         let screenVisibleFrame = screen.visibleFrame
