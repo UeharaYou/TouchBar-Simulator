@@ -20,7 +20,7 @@ class AppDelegate: NSObject, NSApplicationDelegate{
     }
     
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
-        return TouchBarWindow.isClosed 
+        return TouchBarWindow.isClosed
     }
     
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {

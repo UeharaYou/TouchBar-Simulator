@@ -8,7 +8,7 @@
 import AppKit
 
 extension NSWindow {
-    var toolbarView: NSView? { standardWindowButton(.closeButton)?.superview }
+    var titleBarView: NSView? { standardWindowButton(.closeButton)?.superview }
 }
 
 extension NSWindow {
@@ -31,10 +31,27 @@ extension NSWindow {
     }
 
     func alignedOrigin(_ xPositioning: ScreenXPositioning, _ yPositioning: ScreenYPositioning) -> CGPoint {
+        /*
         guard let screen = NSScreen.main else {
-            return frame.origin
+            return CGPoint(x: 0,y: 0)
         }
+         */
+        
+        /*
+        guard let screen = NSScreen.screens.first(where: {
+            $0.frame.contains(NSEvent.mouseLocation)
+        })
+        else {
+            return CGPoint(x: 0,y: 0)
+        }
+        */
 
+        
+        guard let screen = NSScreen.screens.first
+        else {
+            return CGPoint(x: 0,y: 0)
+        }
+        
         let screenVisibleFrame = screen.visibleFrame
         let screenFullFrame = screen.frame
 

@@ -12,11 +12,11 @@ class TouchBarAnimation: NSAnimation {
         didSet {
             super.currentProgress = currentProgress
             if isAnimating {
-                animation(currentValue)
+                animation(super.currentProgress,currentValue)
             }
         }
     }
-    public var animation: (Float) -> Void  = {_ in return} {
+    public var animation: (_ currentProgress: Float,_ currentValue: Float) -> Void  = {(_, _) in return} {
         didSet {
             // immediately stop (cancel) current animation & reset
             if isAnimating {

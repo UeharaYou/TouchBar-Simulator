@@ -7,7 +7,7 @@
 
 import Foundation
 
-public extension NSImage {
+extension NSImage {
     func rotate(degrees:CGFloat) -> NSImage {
         
         var imageBounds = NSZeroRect ; imageBounds.size = self.size

@@ -155,46 +155,26 @@ typedef struct {
     _surface = NULL;
 }
 
-- (void)viewDidLoad {
-    [super viewDidLoad];
-    self.view.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+- (id) initWithNibName:(NSNibName)nibNameOrNil bundle:(NSBundle *)nibBundleOrNil {
+    self = [super initWithNibName:nibNameOrNil bundle:nibBundleOrNil];
     self.device = MTLCreateSystemDefaultDevice();
     
-    self.mtlView = [[MTKView alloc] initWithFrame:self.view.frame device:self.device];
-    self.mtlView.layer.backgroundColor = NSColor.clearColor.CGColor;
-    self.mtlView.layer.opaque = NO;
-    self.mtlView.clearColor = MTLClearColorMake(0, 0, 0, 0);
-    self.mtlView.delegate = self;
-    self.mtlView.framebufferOnly = NO;
-    self.mtlView.autoResizeDrawable = YES;
-    self.mtlView.enableSetNeedsDisplay = YES;
-    self.mtlView.colorPixelFormat = MTLPixelFormatBGRA8Unorm;
-
-    self.commandQueue = [self.device newCommandQueue];
-    self.mtlView.frame = NSMakeRect(0, 0, 1004, 30);
-    [self.view addSubview:_mtlView];
+    self.simulator = DFRTouchBarSimulatorCreate(3, 0, 3); // 3,0,3
+    DFRTouchBar *touchBar = DFRTouchBarSimulatorGetTouchBar(self.simulator);
+    self.touchBarStream = DFRTouchBarCreateDisplayStream(touchBar, 0, dispatch_get_main_queue(), ^(CGDisplayStreamFrameStatus status, uint64_t displayTime, IOSurfaceRef  _Nullable frameSurface, CGDisplayStreamUpdateRef  _Nullable updateRef) {
+        if (frameSurface != NULL) { // when stopped, `frameSurface` is null
+            self->_surface = frameSurface;
+            CFRetain(frameSurface);
+            self->_mtlView.needsDisplay = YES;
+            self->_mtlView.paused = NO;
+        }
+        else {
+            self->_mtlView.needsDisplay = NO;
+            self->_mtlView.paused = YES;
+        }
+//        streamView.layer.contents = (__bridge id _Nullable)(frameSurface);
+    });
     
-    [_mtlView setTranslatesAutoresizingMaskIntoConstraints:NO];
-    [_mtlView addConstraint:[NSLayoutConstraint
-                                      constraintWithItem:_mtlView
-                                      attribute:NSLayoutAttributeHeight
-                                      relatedBy:NSLayoutRelationEqual
-                                      toItem:_mtlView
-                                      attribute:NSLayoutAttributeWidth
-                                      multiplier:(_mtlView.frame.size.height / _mtlView.frame.size.width)
-                                      constant:0]];
-    
-    MTKView *mv = self.mtlView;
-    NSDictionary *dict = NSDictionaryOfVariableBindings(mv);
-    NSArray *constraintsArray = [NSLayoutConstraint constraintsWithVisualFormat:@"H:|-0-[mv]-0-|"
-                                                                        options:0
-                                                                        metrics:nil
-                                                                          views:dict];
-
-    [self.view addConstraints:constraintsArray];
-    [NSLayoutConstraint activateConstraints:constraintsArray];
-    [self.view layoutSubtreeIfNeeded];
-
     id <MTLLibrary> lib = [_device newDefaultLibraryWithBundle:[NSBundle bundleForClass:[TouchBarSimulatorService class]] error:nil];
     _renderPipelineDesc = [MTLRenderPipelineDescriptor new];
     _renderPipelineDesc.sampleCount = 1;
@@ -207,35 +187,86 @@ typedef struct {
     _upscaler = [lib newFunctionWithName:@"BicubicMain"];
     _filter = [lib newFunctionWithName:@"removeBlackColor"];
     _applySmoothing = [lib newFunctionWithName:@"smoothEdges"];
+    
+    return self;
+}
 
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    self.view.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+
+    self.mtlView = [[MTKView alloc] initWithFrame:NSMakeRect(0, 0, 1004, 30) device:self.device];
+    self.mtlView.layer.backgroundColor = NSColor.clearColor.CGColor;
+    self.mtlView.layer.opaque = NO;
+    self.mtlView.clearColor = MTLClearColorMake(0, 0, 0, 0);
+    self.mtlView.delegate = self;
+    self.mtlView.framebufferOnly = NO;
+    self.mtlView.autoResizeDrawable = YES;
+    self.mtlView.enableSetNeedsDisplay = YES;
+    self.mtlView.colorPixelFormat = MTLPixelFormatBGRA8Unorm;
+    [self.mtlView setTranslatesAutoresizingMaskIntoConstraints:NO];
+    
+    [self.mtlView addConstraint:[NSLayoutConstraint
+                                      constraintWithItem:_mtlView
+                                      attribute:NSLayoutAttributeHeight
+                                      relatedBy:NSLayoutRelationEqual
+                                      toItem:_mtlView
+                                      attribute:NSLayoutAttributeWidth
+                                      multiplier:(_mtlView.frame.size.height / _mtlView.frame.size.width)
+                                      constant:0]];
+    
+    self.commandQueue = [self.device newCommandQueue];
+    
+    [self.view addSubview:self.mtlView];
+    
+    MTKView *mv = self.mtlView;
+    NSDictionary *dict = NSDictionaryOfVariableBindings(mv);
+    NSArray *constraintsArray = [NSLayoutConstraint constraintsWithVisualFormat:@"H:|-0-[mv]-0-|"
+                                                                        options:0
+                                                                        metrics:nil
+                                                                          views:dict];
+
+    [self.view addConstraints:constraintsArray];
+    [NSLayoutConstraint activateConstraints:constraintsArray];
+    [self.view layoutSubtreeIfNeeded];
     
     TouchBarSimulatorStreamView *streamView = [[TouchBarSimulatorStreamView alloc] initWithFrame:NSMakeRect(0, 0, 1004, 30)];// 1004, 30
     [self.view addSubview:streamView];
     streamView.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
     
-    self.simulator = DFRTouchBarSimulatorCreate(3, 0, 3); // 3,0,3
     [streamView setSimulator:self.simulator];
     
-    DFRTouchBar *touchBar = DFRTouchBarSimulatorGetTouchBar(self.simulator);
-    self.touchBarStream = DFRTouchBarCreateDisplayStream(touchBar, 0, dispatch_get_main_queue(), ^(CGDisplayStreamFrameStatus status, uint64_t displayTime, IOSurfaceRef  _Nullable frameSurface, CGDisplayStreamUpdateRef  _Nullable updateRef) {
-        self->_surface = frameSurface;
-        CFRetain(frameSurface);
-        self->_mtlView.needsDisplay = YES;
-//        streamView.layer.contents = (__bridge id _Nullable)(frameSurface);
-    });
-    
+}
+
+- (void) viewWillAppear {
     if (self.touchBarStream) {
+        if (@available(macOS 14.0, *)) {
+            // FIXME: deprecated api!
+            NSLog(@"WARNING: `CGDisplayStreamStart` deprecated.");
+        }
         CGDisplayStreamStart(self.touchBarStream);
     }
 }
 
-- (void) dealloc { // FIXME: VIEWDIDDISAPPEAR INVOKED MULTIPLE TIMES!!
+// WARNING: `viewDidDisappear` will be invoked multiple times without unloading the view. Do not release touchBarStream there or there will be a double-free!
+- (void) viewDidDisappear {
+    if (self.touchBarStream) {
+        if (@available(macOS 14.0, *)) {
+            // FIXME: deprecated api!
+            NSLog(@"WARNING: `CGDisplayStreamStop` deprecated.");
+        }
+        CGDisplayStreamStop(self.touchBarStream);
+    }
+}
+
+
+- (void) dealloc {
     if (self.touchBarStream) {
         DFRTouchBarSimulatorInvalidate(self.simulator);
         CGDisplayStreamStop(self.touchBarStream);
         CFRelease(self.touchBarStream);
     }
-    NSLog(@"View dealloced."); // FIXME: SEEMS NEVER INVOKED!!!
+    //NSLog(@"View dealloced.");
     //[super dealloc];
 }
 
