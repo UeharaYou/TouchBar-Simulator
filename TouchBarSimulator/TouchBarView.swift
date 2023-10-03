@@ -53,6 +53,8 @@ class TouchBarViewFactory {
             
             //NSLog("\(remoteView)")
             
+            //NSLog("\(remoteView)")
+            
             return
         })
         

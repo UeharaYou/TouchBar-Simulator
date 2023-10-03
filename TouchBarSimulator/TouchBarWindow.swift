@@ -60,6 +60,32 @@ class TouchBarWindow: NSPanel, NSWindowDelegate {
             }
         }
     }
+    override func constrainFrameRect(
+        _ frameRect: NSRect,
+        to screen: NSScreen?
+    ) -> NSRect {
+        let frameRect = super.constrainFrameRect(frameRect, to: screen)
+        
+        guard let targetScreen = screen else {
+            return frameRect
+        }
+        
+        // FIXME: Does not work!!! Constraint of content size override it!!!
+        // Probable workaround: Add constraint link with contentView to a new view
+        let constrainedWidthFrame = {
+            if (frameRect.width >= targetScreen.visibleFrame.width) {
+                let screenWidth = targetScreen.visibleFrame.width
+                let dWidth = frameRect.width - screenWidth
+                let rectifiedRect = NSRect(origin: frameRect.offsetBy(dx: -dWidth, dy: 0).origin, size: CGSize(width: targetScreen.visibleFrame.width, height: frameRect.height))
+                return rectifiedRect
+            }
+            else {
+                return frameRect
+            }
+        }()
+        
+        return constrainedWidthFrame
+    }
     
     // Properties that holds the last screen the window is on
     // private var lastScreen: NSScreen? = nil
