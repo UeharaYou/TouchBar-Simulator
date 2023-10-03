@@ -38,30 +38,32 @@ extension NSWindow {
         
         let screenVisibleFrame = screen.visibleFrame
         let screenFullFrame = screen.frame
+        
+        let constraintFrame = constrainFrameRect(frame, to: screen)
 
         let x: Double
         let y: Double
         switch xPositioning {
         case .leftOut:
-            x = screenFullFrame.minX - frame.width - 1
+            x = screenFullFrame.minX - constraintFrame.width - 1
         case .left:
             x = screenVisibleFrame.minX
         case .center:
             // Fix: if new frame is contained in screenVisibleFrame (in X axie), prioritize alignment with screenFullFrame.
             // This fixes slight mis-alignment with screen center if the dock is placed on the left/right.
-            if screenFullFrame.midX - frame.width >= screenVisibleFrame.minX
-                && screenFullFrame.midX + frame.width <= screenVisibleFrame.maxX {
-                x = screenFullFrame.midX - frame.width / 2
+            if screenFullFrame.midX - constraintFrame.width >= screenVisibleFrame.minX
+                && screenFullFrame.midX + constraintFrame.width <= screenVisibleFrame.maxX {
+                x = screenFullFrame.midX - constraintFrame.width / 2
             }
             else {
-                x = screenVisibleFrame.midX - frame.width / 2
+                x = screenVisibleFrame.midX - constraintFrame.width / 2
             }
         case .right:
-            x = screenVisibleFrame.maxX - frame.width
+            x = screenVisibleFrame.maxX - constraintFrame.width
         case .rightOut:
             x = screenFullFrame.maxX + 1
         case .retained:
-            x = frame.origin.x
+            x = constraintFrame.origin.x
         }
         switch yPositioning {
         case .topOut:
@@ -71,16 +73,16 @@ extension NSWindow {
             // Previously, the window would obstruct menubar clicks when the menubar was set to auto-hide.
             // Now, the window stays below that area.
             let menubarThickness = NSStatusBar.system.thickness
-            y = min(screenVisibleFrame.maxY - frame.height, screenFullFrame.maxY - menubarThickness - frame.height)
+            y = min(screenVisibleFrame.maxY - constraintFrame.height, screenFullFrame.maxY - menubarThickness - constraintFrame.height)
         case .center:
-            y = screenVisibleFrame.midY - frame.height / 2
+            y = screenVisibleFrame.midY - constraintFrame.height / 2
         case .bottom:
             // Fix: conflicts when customizing control strip (+1px for system behavior)
             y = screenVisibleFrame.minY + 1
         case .bottomOut:
-            y = screenFullFrame.minY - frame.height - 1
+            y = screenFullFrame.minY - constraintFrame.height - 1
         case .retained:
-            y = frame.origin.y
+            y = constraintFrame.origin.y
         }
 
         return CGPoint(x: x, y: y)

@@ -51,6 +51,8 @@ class TouchBarViewFactory {
             NSLayoutConstraint.activate(constraintsArray)
             newView.layoutSubtreeIfNeeded()
             
+            //NSLog("\(remoteView)")
+            
             return
         })
         

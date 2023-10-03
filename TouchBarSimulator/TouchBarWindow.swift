@@ -99,7 +99,7 @@ class TouchBarWindow: NSPanel, NSWindowDelegate {
             case (_, .floating):
                 hasTitle = true
                 startAnimations(duration: 0.35, animation:
-                                    moveAnimation(destination: destinationFrame(docking, hiding)) +
+                                    moveAnimation(destination: destinationFrame(docking, hiding, inScreen: screen)) +
                                 fadeAnimation(destination: 1.0)
                 )
                 renewretainingUpdateDeadline(infinite: true)
@@ -151,13 +151,20 @@ class TouchBarWindow: NSPanel, NSWindowDelegate {
                 touchBarViewFactory.generate(standalone: false)
             }()
             
+            let constraintsArray: [NSLayoutConstraint] = [
+                //NSLayoutConstraint.constraints(withVisualFormat: "H:[contentView(<=windowWidth)]", metrics: ["windowWidth": screen?.frame.width ?? 10000], views: ["contentView": newContentView])
+                //[NSLayoutConstraint(item: newContentView, attribute: .width, relatedBy: .lessThanOrEqual, toItem: , attribute: .width, multiplier: 1, constant: 0)]
+            ].reduce([], +).map{with($0, update: {$0.priority = .fittingSizeCompression - 1})}
+            newContentView.addConstraints(constraintsArray)
+            NSLayoutConstraint.activate(constraintsArray)
+            
             contentView = newContentView
             
             layoutIfNeeded()
             updateConstraintsIfNeeded()
             
             setContentSize(newContentView.getFittingRect(withMinimunHeight: oldContentHeight))
-            
+            //setContentSize(.init(width: 10, height: 10)) // FIXME: rm
             // Offsetting window frame should be Edge-triggering
             if oldValue != viewHasSideBar {
                 setFrame(frame.offsetBy(dx: (viewHasSideBar ? -22 : 22), dy: 0), display: true)
@@ -261,6 +268,8 @@ class TouchBarWindow: NSPanel, NSWindowDelegate {
                 hiding = true
             }
         }
+        
+        contentView?.updateConstraints()
     }
     private var cyclicalUpdateTimer: Timer? = nil {
         didSet {
@@ -404,6 +413,7 @@ class TouchBarWindow: NSPanel, NSWindowDelegate {
             
             return { [weak self] (currentProgress: Float, currentValue: Float) in
                 if currentProgress == 1.0 {
+                    NSLog("\(startFrame)->\(endFrame)")
                     self?.setFrame(endFrame, display: true)
                 }
                 else {
@@ -465,7 +475,7 @@ class TouchBarWindow: NSPanel, NSWindowDelegate {
     }
     
     // Funcs for calculating Window Move Destination
-    private func destinationOrigin(_ forDocking: Docking, _ forHiding: Bool, inScreen targetScreen: NSScreen? = NSScreen.main) -> CGPoint {
+    private func destinationOrigin(_ forDocking: Docking, _ forHiding: Bool, inScreen targetScreen: NSScreen?) -> CGPoint {
         let savedValue = Defaults[.lastFloatingPosition]
         switch(forDocking, forHiding) {
         case (.floating, _):
@@ -480,18 +490,20 @@ class TouchBarWindow: NSPanel, NSWindowDelegate {
             return alignedOrigin(.center, .bottomOut, inScreen: targetScreen)
         }
     }
-    private func destinationFrame(_ forDocking: Docking, _ forHiding: Bool, inScreen targetScreen: NSScreen? = NSScreen.main) -> CGRect {
+    private func destinationFrame(_ forDocking: Docking, _ forHiding: Bool, inScreen targetScreen: NSScreen?) -> CGRect {
         switch(forDocking, forHiding) {
         case (.floating, _):
-            let savedFrame = CGRect(origin: destinationOrigin(forDocking, forHiding, inScreen: targetScreen), size: CGSize(width: frame.width, height: frame.height))
+            let savedFrame = constrainFrameRect(CGRect(origin: destinationOrigin(forDocking, forHiding, inScreen: targetScreen), size: CGSize(width: frame.width, height: frame.height)), to: targetScreen)
             if NSScreen.screens.map({return $0.visibleFrame.contains(savedFrame)}).contains(true) {
                 return savedFrame
             }
             else {
-                return CGRect(origin: alignedOrigin(.center, .center, inScreen: targetScreen), size: CGSize(width: frame.width, height: frame.height))
+                return constrainFrameRect(CGRect(origin: alignedOrigin(.center, .center, inScreen: targetScreen), size: CGSize(width: frame.width, height: frame.height)), to: targetScreen)
             }
         case (_, _):
-            return CGRect(origin: destinationOrigin(forDocking, forHiding, inScreen: targetScreen), size: CGSize(width: frame.width, height: frame.height))
+            let result = constrainFrameRect(CGRect(origin: destinationOrigin(forDocking, forHiding, inScreen: targetScreen), size: CGSize(width: frame.width, height: frame.height)), to: targetScreen)
+            //NSLog("\(targetScreen)->\(result)")
+            return result
         }
     }
     

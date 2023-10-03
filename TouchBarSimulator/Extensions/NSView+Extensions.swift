@@ -44,3 +44,5 @@ extension NSView {
         return newView
     }
 }
+
+// TODO: REMOVE CONFINEMENTS!!!
