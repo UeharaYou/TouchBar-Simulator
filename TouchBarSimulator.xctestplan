@@ -1,0 +1,29 @@
+{
+  "configurations" : [
+    {
+      "id" : "526E0D9A-CC4E-4127-87F3-8C7C4D6CDC72",
+      "name" : "Test Scheme Action",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:TouchBar Simulator.xcodeproj",
+      "identifier" : "FB13F65A2A88231C00212F02",
+      "name" : "TouchBarSimulator"
+    }
+  },
+  "testTargets" : [
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:TouchBar Simulator.xcodeproj",
+        "identifier" : "FB44A4402ACC95C40086FB45",
+        "name" : "TouchBarSimulatorTests"
+      }
+    }
+  ],
+  "version" : 1
+}

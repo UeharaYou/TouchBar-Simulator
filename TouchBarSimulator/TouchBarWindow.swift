@@ -8,24 +8,64 @@
 import AppKit
 import Defaults
 
-let controller = NSWindowController()
-
-final class TouchBarWindow: NSPanel, NSWindowDelegate {
+class TouchBarWindow: NSPanel, NSWindowDelegate {
+    
     enum Docking: String, Codable {
         case floating
         case dockedToTop
         case dockedToBottom
     }
     
-    // Property overrides
+    // View Factory
+    private let touchBarViewFactory = TouchBarViewFactory()
+    
+    // Properties overrides
     override var canBecomeMain: Bool { false }
     override var canBecomeKey: Bool { false }
     
-    // Property that holds the last screen the window is on
+    // Properties handling confinement
+    override var contentView: NSView? {
+        didSet {
+            if let newRestrictionView = confinementView, let contentView = contentView {
+                contentView.addSubview(newRestrictionView)
+                let constraints = [
+                    [NSLayoutConstraint(item: contentView, attribute: .width, relatedBy: .lessThanOrEqual, toItem: newRestrictionView, attribute: .width, multiplier: 1, constant: 0)],
+                    [NSLayoutConstraint(item: contentView, attribute: .height, relatedBy: .lessThanOrEqual, toItem: newRestrictionView, attribute: .height, multiplier: 1, constant: 0)]
+                ].reduce([], +)
+                contentView.addConstraints(constraints)
+                NSLayoutConstraint.activate(constraints)
+                contentView.layout()
+                contentView.updateConstraints()
+            }
+        }
+    }
+    var confinementView: NSView? = nil {
+        didSet {
+            if let oldRestrictionView = oldValue {
+                oldRestrictionView.removeFromSuperview()
+                contentView?.layout()
+                contentView?.updateConstraints()
+            }
+            
+            if let newRestrictionView = confinementView, let contentView = contentView {
+                contentView.addSubview(newRestrictionView)
+                let constraints = [
+                    [NSLayoutConstraint(item: contentView, attribute: .width, relatedBy: .lessThanOrEqual, toItem: newRestrictionView, attribute: .width, multiplier: 1, constant: 0)],
+                    [NSLayoutConstraint(item: contentView, attribute: .height, relatedBy: .lessThanOrEqual, toItem: newRestrictionView, attribute: .height, multiplier: 1, constant: 0)]
+                ].reduce([], +)
+                contentView.addConstraints(constraints)
+                NSLayoutConstraint.activate(constraints)
+                contentView.layout()
+                contentView.updateConstraints()
+            }
+        }
+    }
+    
+    // Properties that holds the last screen the window is on
     // private var lastScreen: NSScreen? = nil
     
     // Properties & delegates func for handling Window Close
-    private var isClosed: Bool {
+    var isClosed: Bool {
         get {
             switch(isVisible, isCloseNoted) {
             case (true, _): // visible <= never closed (t,f) [stable state] / closed but reopened (t,t) [temporal state]
@@ -39,21 +79,21 @@ final class TouchBarWindow: NSPanel, NSWindowDelegate {
         }
     }
     private var isCloseNoted = false
-    internal func windowWillClose(_ notification: Notification) {
+    func windowWillClose(_ notification: Notification) {
         stopAnimations(fastForward: true) // Fast forward all animations to the end
         isCloseNoted = true
     }
     
     // Properties & delegate funcs for handling Live Resize
     private var isLiveResizeUnhandled = false
-    internal func windowDidResize(_ notification: Notification) {
+    func windowDidResize(_ notification: Notification) {
         if inLiveResize {
             isLiveResizeUnhandled = true
         }
     }
     
     // Major properties
-    private var docking: Docking = Defaults[.windowDocking] {
+    var docking: Docking = Defaults[.windowDocking] {
         didSet {
             switch (oldValue, docking) {
             case (_, .floating):
@@ -103,12 +143,12 @@ final class TouchBarWindow: NSPanel, NSWindowDelegate {
             
             let newContentView = {
                 viewHasSideBar ?
-                TouchBarViewFactory.generate(standalone: true) {
+                touchBarViewFactory.generate(standalone: true) {
                     [weak self] button in
                     self?.viewSideButtonPressed(button)
                     return
                 } :
-                TouchBarViewFactory.generate(standalone: false)
+                touchBarViewFactory.generate(standalone: false)
             }()
             
             contentView = newContentView
@@ -219,6 +259,17 @@ final class TouchBarWindow: NSPanel, NSWindowDelegate {
             }
             else if Date() >= retainingUpdateDeadline {
                 hiding = true
+            }
+        }
+    }
+    private var cyclicalUpdateTimer: Timer? = nil {
+        didSet {
+            if let oldTimer = oldValue {
+                oldTimer.invalidate()
+            }
+            
+            if let newTimer = cyclicalUpdateTimer {
+                RunLoop.main.add(newTimer, forMode: .default)
             }
         }
     }
@@ -387,9 +438,9 @@ final class TouchBarWindow: NSPanel, NSWindowDelegate {
             
             let scaleTranslateTransform = {(t: CGFloat) in
                 return CGAffineTransform.identity
-                .translatedBy(x: 0, y: dy * (1 - abs(t * 2 - 1)))
+                    .translatedBy(x: 0, y: dy * (1 - abs(t * 2 - 1)))
             }
-        
+            
             return { [weak self] (currentProgress: Float, currentValue: Float) in
                 if currentProgress == 1.0 {
                     self?.alphaValue = savedAlphaValue
@@ -471,8 +522,8 @@ final class TouchBarWindow: NSPanel, NSWindowDelegate {
         TouchBarContextMenu.showContextMenu(sender)
     }
     
-    // Singleton object
-    private init() {
+    // Convenient init
+    init() {
         super.init(
             contentRect: .zero,
             styleMask: [
@@ -486,8 +537,14 @@ final class TouchBarWindow: NSPanel, NSWindowDelegate {
             backing: .buffered,
             defer: false
         )
+        cyclicalUpdateTimer = {
+            Timer(timeInterval: 0.5, repeats: true) {timer in
+                self.handleCyclicalUpdate()
+            }
+        }()
         delegate = self
         isReleasedWhenClosed = false
+        collectionBehavior = .canJoinAllSpaces
         title = "Touch Bar".localized
         level = .assistiveTechHigh
         backgroundColor = .clear
@@ -501,51 +558,58 @@ final class TouchBarWindow: NSPanel, NSWindowDelegate {
         
         contentView = NSView()
     }
-    private static let instance = TouchBarWindow()
+    //private static let instance = TouchBarWindow()
     
     // Class funcs for accessing singleton object
-    public static var isClosed: Bool {
-        return instance.isClosed
-    }
-    public static func setUp() {
+    func setUp() {
         let previousDocking = Defaults[.windowDocking]
         let previousFrame = Defaults[.lastWindowFrame]
         
         switch previousDocking {
         case .floating:
-            instance.hasTitle = true
-            instance.setFrame(previousFrame, display: true)
+            hasTitle = true
+            setFrame(previousFrame, display: true)
         case .dockedToTop:
-            instance.hasTitle = false
-            instance.setFrame(previousFrame, display: true)
+            hasTitle = false
+            setFrame(previousFrame, display: true)
         case .dockedToBottom:
-            instance.hasTitle = false
-            instance.setFrame(previousFrame, display: true)
+            hasTitle = false
+            setFrame(previousFrame, display: true)
         }
         
-        //instance.docking = previousDocking
+        //docking = previousDocking
         
         // Add cyclicalObserver
-        RunLoop.main.add(Timer(timeInterval: 0.5, repeats: true) { timer in
-            instance.handleCyclicalUpdate()
-        }, forMode: .default)
-        
-        controller.window = instance
-        
-        // Show instance
-        instance.orderFrontRegardless()
-    }
-    public static func finishUp() {
-        // save last float position
-        if instance.docking == .floating {
-            Defaults[.lastFloatingPosition] = instance.frame.origin
+        cyclicalUpdateTimer = Timer(timeInterval: 0.5, repeats: true) {[weak self] timer in
+            self?.handleCyclicalUpdate()
         }
         
-        Defaults[.lastWindowFrame] = instance.frame
+        // Show instance
+        orderFrontRegardless()
+    }
+    func finishUp() {
+        // Remove cyclicalObserver
+        cyclicalUpdateTimer = nil
+        
+        // save last float position
+        if docking == .floating {
+            Defaults[.lastFloatingPosition] = frame.origin
+        }
+        
+        Defaults[.lastWindowFrame] = frame
     }
     
     
-    public static var showOnAllDesktops = true {
+}
+
+class TouchBarWindowManager {
+    static let instance = TouchBarWindow()
+    
+    static var isClosed: Bool {
+        return instance.isClosed
+    }
+    
+    static var showOnAllDesktops = true {
         didSet {
             if showOnAllDesktops {
                 instance.collectionBehavior = .canJoinAllSpaces
@@ -554,11 +618,18 @@ final class TouchBarWindow: NSPanel, NSWindowDelegate {
             }
         }
     }
-    public static var dockSetting: Docking = .floating {
+    static var dockSetting: TouchBarWindow.Docking = .floating {
         didSet {
             instance.docking = dockSetting
         }
     }
     
+    static func setUp() {
+        instance.setUp()
+    }
+    
+    static func finishUp() {
+        instance.finishUp()
+    }
+    
 }
-

@@ -8,23 +8,23 @@
 import Foundation
 import AppKit
 
-
-class AppDelegate: NSObject, NSApplicationDelegate{
+class TouchBarSimulatorApplication: NSObject, NSApplicationDelegate{
     
     func applicationDidFinishLaunching(_ aNotification: Notification) {
-        TouchBarContextMenu.setup()
-        TouchBarWindow.setUp()
-        TouchBarWindow.showOnAllDesktops = true
+        TouchBarContextMenu.setUp()
+        TouchBarWindowManager.setUp()
+        //TouchBarWindow.showOnAllDesktops = true
+        
         NSLog("App launched.")
         
     }
     
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
-        return TouchBarWindow.isClosed
+        return TouchBarWindowManager.isClosed
     }
     
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        TouchBarWindow.dockSetting = .floating
+        TouchBarWindowManager.dockSetting = .floating
         NSLog("App Reopened.")
         return true
     }
@@ -32,7 +32,7 @@ class AppDelegate: NSObject, NSApplicationDelegate{
     func applicationWillTerminate(_ notification: Notification) {
         NSLog("App shutting down.")
         //TouchBarContextMenu.finishUp()
-        TouchBarWindow.finishUp()
+        TouchBarWindowManager.finishUp()
     }
    
 }

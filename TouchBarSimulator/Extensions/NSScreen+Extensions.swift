@@ -8,7 +8,7 @@
 import Foundation
 
 extension NSScreen {
-    public static var atMouseLocation: NSScreen? {
+    static var atMouseLocation: NSScreen? {
         get {
             let mouseLocation = NSEvent.mouseLocation
             return NSScreen.screens.first(where: {
@@ -17,6 +17,12 @@ extension NSScreen {
                 return fixedFrame.contains(mouseLocation) // Include the edge!!!
                 //$0.frame.contains(mouseLocation)
             })
+        }
+    }
+    
+    static var frameViews: [(screen: NSScreen, frame: NSView, visibleFrame: NSView)] {
+        get {
+            return screens.map {($0, NSView.frameView(from: $0.frame), NSView.frameView(from: $0.visibleFrame))}
         }
     }
 }

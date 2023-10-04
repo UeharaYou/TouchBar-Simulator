@@ -9,8 +9,8 @@ import OSLog
 import AppKit
 
 class TouchBarAnimation: NSAnimation {
-    public typealias AnimationFunc = (_ currentProgress: Float,_ currentValue: Float) -> Void
-    public static let emptyAnimation: AnimationFunc = {_, _ in return}
+    typealias AnimationFunc = (_ currentProgress: Float,_ currentValue: Float) -> Void
+    static let emptyAnimation: AnimationFunc = {_, _ in return}
     
     override var currentProgress: NSAnimation.Progress {
         didSet {
@@ -21,7 +21,7 @@ class TouchBarAnimation: NSAnimation {
             }
         }
     }
-    public var animation: AnimationFunc  = {(_, _) in return} {
+    var animation: AnimationFunc  = {(_, _) in return} {
         didSet {
             // immediately stop (cancel) current animation & reset
             if isAnimating {
@@ -33,7 +33,7 @@ class TouchBarAnimation: NSAnimation {
         }
     }
 
-    public convenience init(duration: TimeInterval, animationCurve: NSAnimation.Curve, blockMode: NSAnimation.BlockingMode) {
+    convenience init(duration: TimeInterval, animationCurve: NSAnimation.Curve, blockMode: NSAnimation.BlockingMode) {
         self.init(duration: duration, animationCurve: animationCurve)
         self.animationBlockingMode = blockMode
         self.frameRate = 0.0

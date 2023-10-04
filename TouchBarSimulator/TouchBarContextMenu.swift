@@ -40,7 +40,7 @@ class TouchBarContextMenu {
         autoLaunchToggle.state = (LaunchAtLogin.isEnabled) ? .on : .off
     }
     
-    public static func setup() {
+    static func setUp() {
         instance.autoLaunchToggle.target = instance
         instance.contextMenu.addItem(instance.autoLaunchToggle)
         //instance.contextMenu.addItem(instance.seperator1)
@@ -51,7 +51,7 @@ class TouchBarContextMenu {
         instance.updateMenu()
     }
     
-    public static func showContextMenu(_ sender: NSButton) {
+    static func showContextMenu(_ sender: NSButton) {
         instance.updateMenu()
         instance.contextMenu.popUp(positioning: nil, at: .init(x: sender.bounds.minX, y: sender.bounds.minY), in: sender)
     }

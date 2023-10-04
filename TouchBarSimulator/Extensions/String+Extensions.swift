@@ -19,5 +19,5 @@ extension String {
 
 /*
 @freestanding(expression)
-public macro localize(_ value: String) -> String = #externalMacro(module: "StringsLiteralMacroMacros", type: "LocalizeMacro")
+macro localize(_ value: String) -> String = #externalMacro(module: "StringsLiteralMacroMacros", type: "LocalizeMacro")
 */

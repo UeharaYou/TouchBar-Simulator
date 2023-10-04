@@ -7,19 +7,20 @@
 
 import Foundation
 
+class TouchBarView: NSView {
+    
+    var dockSideButtonDelegate: ((_: NSButton) -> Void)? // This is a func delegate from external modules, called when `sideButtonPressed` is called
+    
+    @objc func sideButtonPressed(_ button: NSButton) { // This is the slot for the `sideButton` in the `sideBarView`
+        dockSideButtonDelegate?(button)
+    }
+}
+
 class TouchBarViewFactory {
     
-    class TouchBarView: NSView {
-        public var dockSideButtonDelegate: ((_: NSButton) -> Void)? // This is a func delegate from external modules, called when `sideButtonPressed` is called
-        
-        @objc public func sideButtonPressed(_ button: NSButton) { // This is the slot for the `sideButton` in the `sideBarView`
-            dockSideButtonDelegate?(button)
-        }
-    }
-    
-    private static let contentView: NSView = {
-        let contentView = NSView()
-        contentView.translatesAutoresizingMaskIntoConstraints = false
+    private var mainContentView: NSView = {
+        let newView = NSView()
+        newView.translatesAutoresizingMaskIntoConstraints = false
         
         let blurView = NSVisualEffectView()
         blurView.autoresizingMask = [.height, .width]
@@ -27,7 +28,7 @@ class TouchBarViewFactory {
         blurView.blendingMode = .behindWindow
         blurView.material = .fullScreenUI
         blurView.state = .active
-        contentView.addSubview(blurView)
+        newView.addSubview(blurView)
         
         let remoteView = NSRemoteView(frame: CGRectMake(0, 0, 1004, 30)) // 1004px*30px is the resolution of second-gen touch bar
         remoteView.setSynchronizesImplicitAnimations(false)
@@ -38,7 +39,7 @@ class TouchBarViewFactory {
         remoteView.layer?.allowsEdgeAntialiasing = true
         
         remoteView.advance(toRunPhaseIfNeeded: {(error) in
-            contentView.addSubview(remoteView)
+            newView.addSubview(remoteView)
             
             let constraintsArray = [
                 [NSLayoutConstraint(item: remoteView, attribute: .width, relatedBy: .equal, toItem: remoteView, attribute: .height, multiplier: 1004.0/30.0, constant: 0.0)],
@@ -46,27 +47,27 @@ class TouchBarViewFactory {
                 NSLayoutConstraint.constraints(withVisualFormat: "V:|-5-[remoteView]-5-|", metrics: nil, views: ["remoteView": remoteView])
             ].reduce([], +)
             
-            contentView.addConstraints(constraintsArray)
+            newView.addConstraints(constraintsArray)
             NSLayoutConstraint.activate(constraintsArray)
-            contentView.layoutSubtreeIfNeeded()
+            newView.layoutSubtreeIfNeeded()
             
             return
         })
         
         let constraintsArray: [NSLayoutConstraint] = [
-            NSLayoutConstraint.constraints(withVisualFormat: "H:[contentView(>=1014)]", metrics: nil, views: ["contentView": contentView]),
-            NSLayoutConstraint.constraints(withVisualFormat: "V:[contentView(>=40)]", metrics: nil, views: ["contentView": contentView])
-        ].reduce([], +)
-        contentView.addConstraints(constraintsArray)
+            NSLayoutConstraint.constraints(withVisualFormat: "H:[newView(>=1014)]", metrics: nil, views: ["newView": newView]),
+            NSLayoutConstraint.constraints(withVisualFormat: "V:[newView(>=40)]", metrics: nil, views: ["newView": newView])
+        ].reduce([], +).map{with($0, update: {$0.priority = .required - 1})}
+        newView.addConstraints(constraintsArray)
         NSLayoutConstraint.activate(constraintsArray)
-        contentView.layoutSubtreeIfNeeded()
+        newView.layoutSubtreeIfNeeded()
         
-        return contentView
+        return newView
     }()
     
-    private static let sideBarViewTuple: (NSView, (TouchBarView) -> Void) = {
-        let sideBarView = NSView()
-        sideBarView.translatesAutoresizingMaskIntoConstraints = false
+    private var sideBarViewTuple: (NSView, (TouchBarView) -> Void) = {
+        let newView = NSView()
+        newView.translatesAutoresizingMaskIntoConstraints = false
         
         let blurView = NSVisualEffectView()
         blurView.autoresizingMask = [.height, .width]
@@ -74,7 +75,7 @@ class TouchBarViewFactory {
         blurView.blendingMode = .behindWindow
         blurView.material = .headerView
         blurView.state = .active
-        sideBarView.addSubview(blurView)
+        newView.addSubview(blurView)
         
         let escapeImage = {
             if #available(macOS 11, *) {
@@ -117,11 +118,11 @@ class TouchBarViewFactory {
         sideButton.frame = CGRect(x: 0, y: 0, width: 16, height: 11)
         sideButton.autoresizingMask = [.minXMargin, .minYMargin, .maxYMargin]
         sideButton.translatesAutoresizingMaskIntoConstraints = false
-        sideBarView.addSubview(sideButton)
+        newView.addSubview(sideButton)
         
         // `sideButton` needs an entity target for posting button-press events to, which is externally assigned. So we throw a closure to the caller for the backpatch.
         let targetRegistration = {(target: TouchBarView) -> Void in sideButton.target = target} // `sideButton.target` is a weak reference, don't worry about Reference Looping
-        sideButton.action = #selector(TouchBarView.sideButtonPressed) // Since it's internal, we just have it concrete instead of requiring one from the caller.
+        sideButton.action = #selector(TouchBarView.sideButtonPressed) // Since it's concrete, we just have it hard-coded instead of requiring one from the caller.
         
         // Now create a closure for changing the image of the `sideButton`
         // FIXME: The logic handling the image and the actual action is seperated into different locations. Reassigning combinations (e.g. when `option` key is pressed) requires both changing the logic here and one from `dockSideButtonDelegate`.
@@ -151,14 +152,14 @@ class TouchBarViewFactory {
             NSLayoutConstraint.constraints(withVisualFormat: "V:|-5-[buttonRelease]-5-|", metrics: nil, views: ["buttonRelease": sideButton])
         ].reduce([], +)
         
-        sideBarView.addConstraints(constraintsArray)
+        newView.addConstraints(constraintsArray)
         NSLayoutConstraint.activate(constraintsArray)
-        sideBarView.layoutSubtreeIfNeeded()
+        newView.layoutSubtreeIfNeeded()
         
-        return (sideBarView, targetRegistration)
+        return (newView, targetRegistration)
     }()
     
-    public static func generate(standalone: Bool = false, sideButtonDelegate delegateFunc: @escaping (_: NSButton) -> Void = {(_) in return}) -> TouchBarView {
+    func generate(standalone: Bool = false, sideButtonDelegate delegateFunc: @escaping (_: NSButton) -> Void = {(_) in return}) -> TouchBarView {
         
         let touchBarView = TouchBarView()
         //touchBarView.autoresizingMask = [.height, .width]
@@ -171,16 +172,17 @@ class TouchBarViewFactory {
         
         if standalone {
             let (sideBarView, updateTarget) = sideBarViewTuple
+            let mainView = mainContentView
             
             // Update target for the sidebar button to the newly generated `touchBarView` entity.
             updateTarget(touchBarView)
             
             touchBarView.addSubview(sideBarView)
-            touchBarView.addSubview(contentView)
+            touchBarView.addSubview(mainView)
             let constraintsArray = [
-                NSLayoutConstraint.constraints(withVisualFormat: "H:|-0-[sideBarView]-0-[contentView]-0-|", metrics: nil, views: ["sideBarView": sideBarView, "contentView": contentView]),
+                NSLayoutConstraint.constraints(withVisualFormat: "H:|-0-[sideBarView]-0-[mainView]-0-|", metrics: nil, views: ["sideBarView": sideBarView, "mainView": mainView]),
                 NSLayoutConstraint.constraints(withVisualFormat: "V:|-0-[sideBarView]-0-|", metrics: nil, views: ["sideBarView": sideBarView]),
-                NSLayoutConstraint.constraints(withVisualFormat: "V:|-0-[contentView]-0-|", metrics: nil, views: ["contentView": contentView])
+                NSLayoutConstraint.constraints(withVisualFormat: "V:|-0-[mainView]-0-|", metrics: nil, views: ["mainView": mainView])
             ].reduce([], +)
             
             touchBarView.addConstraints(constraintsArray)
@@ -191,10 +193,11 @@ class TouchBarViewFactory {
             touchBarView.layer?.cornerRadius = 10.0
         }
         else {
-            touchBarView.addSubview(contentView)
+            let mainView = mainContentView
+            touchBarView.addSubview(mainView)
             let constraintsArray = [
-                NSLayoutConstraint.constraints(withVisualFormat: "H:|-0-[contentView]-0-|", metrics: nil, views: ["contentView": contentView]),
-                NSLayoutConstraint.constraints(withVisualFormat: "V:|-0-[contentView]-0-|", metrics: nil, views: ["contentView": contentView])
+                NSLayoutConstraint.constraints(withVisualFormat: "H:|-0-[mainView]-0-|", metrics: nil, views: ["mainView": mainView]),
+                NSLayoutConstraint.constraints(withVisualFormat: "V:|-0-[mainView]-0-|", metrics: nil, views: ["mainView": mainView])
             ].reduce([], +)
             
             touchBarView.addConstraints(constraintsArray)

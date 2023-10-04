@@ -7,7 +7,7 @@
 
 import AppKit
 
-@main struct MyApp {
+@main struct TouchBarSimulatorMain {
     
     static func main () -> Void {
         // Check for duplicated instances (in case of "open -n" command or other circumstances).
@@ -23,7 +23,7 @@ import AppKit
             
             // Load main entry for NSApp
             NSLog("App started.")
-            let delegate = AppDelegate()
+            let delegate = TouchBarSimulatorApplication()
             NSApplication.shared.delegate = delegate
             NSApplication.shared.setActivationPolicy(.accessory)
             /*

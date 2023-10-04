@@ -30,6 +30,7 @@
 		FB3235302AC310D1004A50A1 /* LaunchAtLogin in Frameworks */ = {isa = PBXBuildFile; productRef = FB32352F2AC310D1004A50A1 /* LaunchAtLogin */; };
 		FB3235352AC32A3E004A50A1 /* TouchBarContextMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB3235342AC32A3E004A50A1 /* TouchBarContextMenu.swift */; };
 		FB3235372AC32A8F004A50A1 /* String+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB3235362AC32A8F004A50A1 /* String+Extensions.swift */; };
+		FB44A4442ACC95C40086FB45 /* TouchBarSimulatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB44A4432ACC95C40086FB45 /* TouchBarSimulatorTests.swift */; };
 		FB6D83DB2AC4A08B00777DB8 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = FB6D83DA2AC4A08B00777DB8 /* Localizable.xcstrings */; };
 		FB89D7D42ACB76EC00CE02E6 /* NSScreen+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB89D7D32ACB76EC00CE02E6 /* NSScreen+Extensions.swift */; };
 		FBC3CF242AC46A5400279557 /* Globals.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB13F6732A88246400212F02 /* Globals.swift */; };
@@ -44,6 +45,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = 0906CDF324E89F3B006B05A4;
 			remoteInfo = TouchBarSimulatorService;
+		};
+		FB44A4452ACC95C40086FB45 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 0906CDCE24E89EE6006B05A4 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FB13F65A2A88231C00212F02;
+			remoteInfo = TouchBarSimulator;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -93,6 +101,9 @@
 		FB32352C2AC30175004A50A1 /* NSImage+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NSImage+Extensions.swift"; sourceTree = "<group>"; };
 		FB3235342AC32A3E004A50A1 /* TouchBarContextMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TouchBarContextMenu.swift; sourceTree = "<group>"; };
 		FB3235362AC32A8F004A50A1 /* String+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "String+Extensions.swift"; sourceTree = "<group>"; };
+		FB44A4412ACC95C40086FB45 /* TouchBarSimulatorTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TouchBarSimulatorTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		FB44A4432ACC95C40086FB45 /* TouchBarSimulatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TouchBarSimulatorTests.swift; sourceTree = "<group>"; };
+		FB44A44A2ACCB3E40086FB45 /* TouchBarSimulator.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = TouchBarSimulator.xctestplan; sourceTree = "<group>"; };
 		FB6D83DA2AC4A08B00777DB8 /* Localizable.xcstrings */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		FB89D7D32ACB76EC00CE02E6 /* NSScreen+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NSScreen+Extensions.swift"; sourceTree = "<group>"; };
 		FBE1319F2AC9C611002DA226 /* NSView+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NSView+Extensions.swift"; sourceTree = "<group>"; };
@@ -119,17 +130,26 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		FB44A43E2ACC95C40086FB45 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		0906CDCD24E89EE6006B05A4 = {
 			isa = PBXGroup;
 			children = (
+				FB44A44A2ACCB3E40086FB45 /* TouchBarSimulator.xctestplan */,
 				FB3235292AC2CBBF004A50A1 /* Trash.swift */,
 				FB13F6732A88246400212F02 /* Globals.swift */,
 				0906CE0724E8A1BA006B05A4 /* ViewBridge */,
 				FB13F65C2A88231C00212F02 /* TouchBarSimulator */,
 				0906CDF524E89F3B006B05A4 /* TouchBarSimulatorService */,
+				FB44A4422ACC95C40086FB45 /* TouchBarSimulatorTests */,
 				0906CDD724E89EE6006B05A4 /* Products */,
 				0906CDEB24E89F1B006B05A4 /* Frameworks */,
 			);
@@ -140,6 +160,7 @@
 			children = (
 				0906CDF424E89F3B006B05A4 /* TouchBarSimulatorService.xpc */,
 				FB13F65B2A88231C00212F02 /* TouchBarSimulator.app */,
+				FB44A4412ACC95C40086FB45 /* TouchBarSimulatorTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -211,6 +232,14 @@
 			path = Extensions;
 			sourceTree = "<group>";
 		};
+		FB44A4422ACC95C40086FB45 /* TouchBarSimulatorTests */ = {
+			isa = PBXGroup;
+			children = (
+				FB44A4432ACC95C40086FB45 /* TouchBarSimulatorTests.swift */,
+			);
+			path = TouchBarSimulatorTests;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -255,6 +284,24 @@
 			productReference = FB13F65B2A88231C00212F02 /* TouchBarSimulator.app */;
 			productType = "com.apple.product-type.application";
 		};
+		FB44A4402ACC95C40086FB45 /* TouchBarSimulatorTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FB44A4492ACC95C40086FB45 /* Build configuration list for PBXNativeTarget "TouchBarSimulatorTests" */;
+			buildPhases = (
+				FB44A43D2ACC95C40086FB45 /* Sources */,
+				FB44A43E2ACC95C40086FB45 /* Frameworks */,
+				FB44A43F2ACC95C40086FB45 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				FB44A4462ACC95C40086FB45 /* PBXTargetDependency */,
+			);
+			name = TouchBarSimulatorTests;
+			productName = TouchBarSimulatorTests;
+			productReference = FB44A4412ACC95C40086FB45 /* TouchBarSimulatorTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -271,6 +318,10 @@
 					FB13F65A2A88231C00212F02 = {
 						CreatedOnToolsVersion = 15.0;
 						LastSwiftMigration = 1500;
+					};
+					FB44A4402ACC95C40086FB45 = {
+						CreatedOnToolsVersion = 15.0;
+						TestTargetID = FB13F65A2A88231C00212F02;
 					};
 				};
 			};
@@ -295,6 +346,7 @@
 			targets = (
 				FB13F65A2A88231C00212F02 /* TouchBarSimulator */,
 				0906CDF324E89F3B006B05A4 /* TouchBarSimulatorService */,
+				FB44A4402ACC95C40086FB45 /* TouchBarSimulatorTests */,
 			);
 		};
 /* End PBXProject section */
@@ -315,6 +367,13 @@
 				FB0CD4292A883CD900771CC0 /* Info.plist in Resources */,
 				FB13F6622A88231F00212F02 /* Assets.xcassets in Resources */,
 				FB6D83DB2AC4A08B00777DB8 /* Localizable.xcstrings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FB44A43F2ACC95C40086FB45 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -377,6 +436,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		FB44A43D2ACC95C40086FB45 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FB44A4442ACC95C40086FB45 /* TouchBarSimulatorTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -384,6 +451,11 @@
 			isa = PBXTargetDependency;
 			target = 0906CDF324E89F3B006B05A4 /* TouchBarSimulatorService */;
 			targetProxy = FB13F66A2A8823D700212F02 /* PBXContainerItemProxy */;
+		};
+		FB44A4462ACC95C40086FB45 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FB13F65A2A88231C00212F02 /* TouchBarSimulator */;
+			targetProxy = FB44A4452ACC95C40086FB45 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -632,6 +704,55 @@
 			};
 			name = Release;
 		};
+		FB44A4472ACC95C40086FB45 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 47HK3524RN;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GENERATE_INFOPLIST_FILE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = moe.ueharayou.TouchBarSimulatorTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/TouchBarSimulator.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/TouchBarSimulator";
+			};
+			name = Debug;
+		};
+		FB44A4482ACC95C40086FB45 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 47HK3524RN;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GENERATE_INFOPLIST_FILE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = moe.ueharayou.TouchBarSimulatorTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/TouchBarSimulator.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/TouchBarSimulator";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -658,6 +779,15 @@
 			buildConfigurations = (
 				FB13F6682A88231F00212F02 /* Debug */,
 				FB13F6692A88231F00212F02 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FB44A4492ACC95C40086FB45 /* Build configuration list for PBXNativeTarget "TouchBarSimulatorTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FB44A4472ACC95C40086FB45 /* Debug */,
+				FB44A4482ACC95C40086FB45 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

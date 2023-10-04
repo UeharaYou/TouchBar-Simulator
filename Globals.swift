@@ -7,11 +7,11 @@
 
 import Foundation
 
-enum Globals {
+public enum Globals {
     // Global Variables for Project
-    static let appName = "Touch Bar Simulator"
-    static let mainAppId = "moe.ueharayou.TouchBarSimulator"
-    static let windowAutosaveName = "TouchBarWindow"
-    static let serviceBundleId = "moe.ueharayou.TouchBarSimulatorService"
-    static let serviceSubClassName = "TouchBarSimulatorService"
+    public static let appName = "Touch Bar Simulator"
+    public static let mainAppId = "moe.ueharayou.TouchBarSimulator"
+    public static let windowAutosaveName = "TouchBarWindow"
+    public static let serviceBundleId = "moe.ueharayou.TouchBarSimulatorService"
+    public static let serviceSubClassName = "TouchBarSimulatorService"
 }
