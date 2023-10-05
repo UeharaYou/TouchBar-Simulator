@@ -8,59 +8,128 @@
 import XCTest
 @testable import TouchBarSimulator
 
+class TestFeedBackWindow: NSWindow {
+    
+    var expectation: XCTestExpectation? = nil
+    @objc func accept() {
+        if let expectation = expectation {
+            expectation.fulfill()
+        }
+        close()
+    }
+    @objc func reject() {
+        let rejectString = feedBackInput.stringValue
+        if rejectString.isEmpty {
+            XCTFail("Test REJECTED during manual inspection.")
+        }
+        else {
+            XCTFail("Test REJECTED during manual inspection: \(rejectString)")
+        }
+        if let expectation = expectation {
+            expectation.fulfill()
+        }
+        close()
+        
+    }
+    
+    let acceptButton = NSButton(title: "Accept", target: nil, action: #selector(TestFeedBackWindow.accept))
+    let rejectButton = NSButton(title: "Reject", target: nil, action: #selector(TestFeedBackWindow.reject))
+    let feedBackInput = with(NSTextField()){$0.placeholderString = "Reason of rejection."; $0.lineBreakMode = .byTruncatingHead; $0.maximumNumberOfLines = 1}
+    
+    func voteView(desc: String) -> NSView  {
+        let descriptionText = NSTextField(labelWithString: desc)
+        
+        let view = NSView()
+        view.translatesAutoresizingMaskIntoConstraints = false
+        
+        let textScrollView = NSScrollView()
+        textScrollView.translatesAutoresizingMaskIntoConstraints = false
+        textScrollView.borderType = .bezelBorder
+        textScrollView.backgroundColor = .clear
+        textScrollView.hasVerticalScroller = true
+        textScrollView.autohidesScrollers = true
+        
+        descriptionText.translatesAutoresizingMaskIntoConstraints = false
+        descriptionText.alignment = .center
+        descriptionText.lineBreakMode = .byWordWrapping
+        
+        let textClipView = NSClipView()
+        textClipView.translatesAutoresizingMaskIntoConstraints = false
+        textScrollView.contentView = textClipView
+
+        let textDocumentView = NSView()
+        textDocumentView.translatesAutoresizingMaskIntoConstraints = false
+        textScrollView.documentView = textDocumentView
+        textClipView.addConstraint(NSLayoutConstraint(item: textClipView, attribute: .width, relatedBy: .lessThanOrEqual, toItem: nil, attribute: .notAnAttribute, multiplier: 1.0, constant: (NSScreen.main?.frame.width ?? 1600) * 0.25))
+        textClipView.addConstraint(NSLayoutConstraint(item: textClipView, attribute: .height, relatedBy: .lessThanOrEqual, toItem: nil, attribute: .notAnAttribute, multiplier: 1.0, constant: (NSScreen.main?.frame.height ?? 2000) * 0.25))
+        textClipView.addConstraint(NSLayoutConstraint(item: textClipView, attribute: .height, relatedBy: .greaterThanOrEqual, toItem: nil, attribute: .notAnAttribute, multiplier: 1.0, constant: 50))
+        textClipView.addConstraint(with(NSLayoutConstraint(item: textClipView, attribute: .width, relatedBy: .equal, toItem: textDocumentView, attribute: .width, multiplier: 1.0, constant: 0), update: {$0.priority = .required - 1}))
+        textClipView.addConstraint(with(NSLayoutConstraint(item: textClipView, attribute: .height, relatedBy: .equal, toItem: textDocumentView, attribute: .height, multiplier: 1.0, constant: 0), update: {$0.priority = .windowSizeStayPut + 1}))
+        
+        textDocumentView.addSubview(descriptionText)
+        let textDocumentConstraints = [
+            NSLayoutConstraint.constraints(withVisualFormat: "H:|[btn]|", metrics: nil, views: ["btn": descriptionText]),
+            NSLayoutConstraint.constraints(withVisualFormat: "V:|[btn(>=45)]|", metrics: nil, views: ["btn": descriptionText]),
+        ].reduce([], +)
+        textDocumentView.addConstraints(textDocumentConstraints)
+        NSLayoutConstraint.activate(textDocumentConstraints)
+        
+        let voteView = NSView()
+        voteView.translatesAutoresizingMaskIntoConstraints = false
+        
+        acceptButton.translatesAutoresizingMaskIntoConstraints = false
+        rejectButton.translatesAutoresizingMaskIntoConstraints = false
+        voteView.addSubview(acceptButton)
+        voteView.addSubview(rejectButton)
+        let voteConstraints = [
+            NSLayoutConstraint.constraints(withVisualFormat: "H:|-6-[acp(>=100)]-3-[rej(>=100)]-6-|", metrics: nil, views: ["acp": acceptButton, "rej": rejectButton]),
+            NSLayoutConstraint.constraints(withVisualFormat: "V:|-3-[btn]-3-|", metrics: nil, views: ["btn": acceptButton]),
+            NSLayoutConstraint.constraints(withVisualFormat: "V:|-3-[btn]-3-|", metrics: nil, views: ["btn": rejectButton]),
+            [NSLayoutConstraint(item: acceptButton, attribute: .width, relatedBy: .equal, toItem: rejectButton, attribute: .width, multiplier: 2, constant: 0)]
+        ].reduce([], +)
+        voteView.addConstraints(voteConstraints)
+        NSLayoutConstraint.activate(voteConstraints)
+        
+        voteView.layout()
+
+        feedBackInput.translatesAutoresizingMaskIntoConstraints = false
+        
+        view.addSubview(feedBackInput)
+        view.addSubview(voteView)
+        view.addSubview(textScrollView)
+        
+        let constraints = [
+            NSLayoutConstraint.constraints(withVisualFormat: "V:|-8-[txt]-5-[feedBackInput]-3-[vote]-3-|", metrics: nil, views: ["txt": textScrollView, "vote": voteView, "feedBackInput": feedBackInput]),
+            NSLayoutConstraint.constraints(withVisualFormat: "H:|-10-[btn]-10-|", metrics: nil, views: ["btn": textScrollView]),
+            NSLayoutConstraint.constraints(withVisualFormat: "H:|-3-[btn]-3-|", metrics: nil, views: ["btn": voteView]),
+            NSLayoutConstraint.constraints(withVisualFormat: "H:|-10-[btn]-10-|", metrics: nil, views: ["btn": feedBackInput]),
+        ].reduce([], +)
+        view.addConstraints(constraints)
+        NSLayoutConstraint.activate(constraints)
+        
+        //view.layout()
+        return view
+    }
+    
+    func show() {
+        level = .assistiveTechHigh
+        isReleasedWhenClosed = false
+        title = "Test Feedback"
+        
+        acceptButton.target = self
+        rejectButton.target = self
+        
+        contentView = voteView(desc: expectation?.expectationDescription ?? "")
+        layoutIfNeeded()
+        updateConstraintsIfNeeded()
+        setFrame(NSRect(x: NSScreen.main?.frame.midX ?? 100, y: NSScreen.main?.frame.midY ?? 100, width: 0, height: 0), display: true)
+        orderFrontRegardless()
+    }
+}
+
+
 @MainActor
 final class TouchBarSimulatorTests: XCTestCase {
-    class TestVoteWindow: NSWindow {
-        var expectation: XCTestExpectation? = nil
-        @objc func accept() {
-            if let expectation = expectation {
-                expectation.fulfill()
-            }
-            close()
-        }
-        @objc func reject() {
-            XCTFail("Manual Inspection Failed.")
-            if let expectation = expectation {
-                expectation.fulfill()
-            }
-            close()
-            
-        }
-        
-        let acceptButton = NSButton(title: "Accept", target: nil, action: #selector(TestVoteWindow.accept))
-        let rejectButton = NSButton(title: "Reject", target: nil, action: #selector(TestVoteWindow.reject))
-        
-        func voteView() -> NSView  {
-            let voteView = NSView()
-            voteView.addSubview(acceptButton)
-            voteView.addSubview(rejectButton)
-            acceptButton.translatesAutoresizingMaskIntoConstraints = false
-            rejectButton.translatesAutoresizingMaskIntoConstraints = false
-            let constraints = [
-                NSLayoutConstraint.constraints(withVisualFormat: "H:|-3-[acp(>=100)]-3-[rej(>=100)]-3-|", metrics: nil, views: ["acp": acceptButton, "rej": rejectButton]),
-                NSLayoutConstraint.constraints(withVisualFormat: "V:|-3-[btn(>=50)]-3-|", metrics: nil, views: ["btn": acceptButton]),
-                NSLayoutConstraint.constraints(withVisualFormat: "V:|-3-[btn(>=50)]-3-|", metrics: nil, views: ["btn": rejectButton]),
-            ].reduce([], +)
-            voteView.addConstraints(constraints)
-            NSLayoutConstraint.activate(constraints)
-            
-            voteView.layout()
-
-            return voteView
-        }
-        
-        func show() {
-            level = .assistiveTechHigh
-            isReleasedWhenClosed = false
-            title = "Test Result Vote"
-            acceptButton.target = self
-            rejectButton.target = self
-            contentView = voteView()
-            layoutIfNeeded()
-            setFrame(NSRect(x: NSScreen.main?.frame.midX ?? 100, y: NSScreen.main?.frame.midY ?? 100, width: 0, height: 0), display: true)
-            orderFrontRegardless()
-        }
-    }
     
     override func setUpWithError() throws {
         TouchBarWindowManager.instance.orderOut(nil)
@@ -73,7 +142,7 @@ final class TouchBarSimulatorTests: XCTestCase {
     
     func testScreenView() throws {
         let viewTuples = NSScreen.frameViews
-        let expectation = XCTestExpectation(description: "Manual Inspection")
+        let expectation = XCTestExpectation(description: "Test: \(#function).")
         
         DispatchQueue.main.async {
             let _ = viewTuples.map {
@@ -104,7 +173,7 @@ final class TouchBarSimulatorTests: XCTestCase {
                 window.orderFrontRegardless()
                 return window
             }
-            let manualVote = TestVoteWindow()
+            let manualVote = TestFeedBackWindow()
             manualVote.expectation = expectation
             manualVote.show()
         }
@@ -112,16 +181,12 @@ final class TouchBarSimulatorTests: XCTestCase {
         wait(for: [expectation])
         
         return
-        // This is an example of a functional test case.
-        // Use XCTAssert and related functions to verify your tests produce the correct results.
-        // Any test you write for XCTest can be annotated as throws and async.
-        // Mark your test throws to produce an unexpected failure when your test encounters an uncaught error.
-        // Mark your test async to allow awaiting for asynchronous code to complete. Check the results with assertions afterwards.
+
     }
     
     func testWindowForAllScreenView() async throws {
         let viewTuples = NSScreen.frameViews
-        let expectation = XCTestExpectation(description: "Manual Inspection")
+        let expectation = XCTestExpectation(description: "Test: \(#function).")
         let tuple = viewTuples.map {
             let (screen, _, visibleView) = $0
             let window = TouchBarWindow()
@@ -150,7 +215,7 @@ final class TouchBarSimulatorTests: XCTestCase {
         await withCheckedContinuation { continuation in
             _  = tuple.map { (window, screen, visibleView) in
                 for docking in [TouchBarWindow.Docking.dockedToTop, .dockedToBottom] {
-                    let newWindow = TestVoteWindow()
+                    let newWindow = TestFeedBackWindow()
                     newWindow.styleMask = []
                     let destFrame = window.destinationFrame(for: docking, for: false, in: screen)
                     let destView = NSView.frameView(from: destFrame)
@@ -174,23 +239,19 @@ final class TouchBarSimulatorTests: XCTestCase {
             RunLoop.main.add(timer, forMode: .default)
         }
         
-        let manualVote = TestVoteWindow()
+        let manualVote = TestFeedBackWindow()
         manualVote.expectation = expectation
         manualVote.show()
         
         await fulfillment(of: [expectation])
         
         return
-        // This is an example of a functional test case.
-        // Use XCTAssert and related functions to verify your tests produce the correct results.
-        // Any test you write for XCTest can be annotated as throws and async.
-        // Mark your test throws to produce an unexpected failure when your test encounters an uncaught error.
-        // Mark your test async to allow awaiting for asynchronous code to complete. Check the results with assertions afterwards.
+
     }
     
     func testDetectionRectForAllScreenView() async throws {
         let viewTuples = NSScreen.frameViews
-        let expectation = XCTestExpectation(description: "Manual Inspection")
+        let expectation = XCTestExpectation(description: "Test: \(#function).")
         
         let tuple = viewTuples.map {
             let (screen, _, visibleView) = $0
@@ -246,7 +307,7 @@ final class TouchBarSimulatorTests: XCTestCase {
             }
             RunLoop.main.add(timer, forMode: .default)
         }
-        let manualVote = TestVoteWindow()
+        let manualVote = TestFeedBackWindow()
         manualVote.expectation = expectation
         manualVote.show()
         
@@ -254,16 +315,12 @@ final class TouchBarSimulatorTests: XCTestCase {
         await fulfillment(of: [expectation])
         
         return
-        // This is an example of a functional test case.
-        // Use XCTAssert and related functions to verify your tests produce the correct results.
-        // Any test you write for XCTest can be annotated as throws and async.
-        // Mark your test throws to produce an unexpected failure when your test encounters an uncaught error.
-        // Mark your test async to allow awaiting for asynchronous code to complete. Check the results with assertions afterwards.
+
     }
     
     func testIndependentTouchBarView() throws {
         let viewTuples = [(NSScreen.main!, NSView(), NSView.frameView(from: .init(origin: .init(x: 0, y: 0), size: .init(width: 300, height: 100))))]//NSScreen.frameViews
-        let expectation = XCTestExpectation(description: "Manual Inspection")
+        let expectation = XCTestExpectation(description: "Test: \(#function).")
         
         DispatchQueue.main.async {
             let _ = viewTuples.map {
@@ -281,7 +338,7 @@ final class TouchBarSimulatorTests: XCTestCase {
                 return window
             }
             
-            let manualVote = TestVoteWindow()
+            let manualVote = TestFeedBackWindow()
             manualVote.expectation = expectation
             manualVote.show()
         }
@@ -289,13 +346,10 @@ final class TouchBarSimulatorTests: XCTestCase {
         wait(for: [expectation])
         
         return
-        // This is an example of a functional test case.
-        // Use XCTAssert and related functions to verify your tests produce the correct results.
-        // Any test you write for XCTest can be annotated as throws and async.
-        // Mark your test throws to produce an unexpected failure when your test encounters an uncaught error.
-        // Mark your test async to allow awaiting for asynchronous code to complete. Check the results with assertions afterwards.
+
     }
     
+    /*
     func testPerformanceExample() async throws {
         await withCheckedContinuation { continuation in
             let timer = Timer(timeInterval: 1, repeats: false) { timer in
@@ -309,5 +363,6 @@ final class TouchBarSimulatorTests: XCTestCase {
         // Put the code you want to measure the time of here.
         //}
     }
+    */
     
 }
