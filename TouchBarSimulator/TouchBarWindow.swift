@@ -16,6 +16,20 @@ class TouchBarWindow: NSPanel, NSWindowDelegate {
         case dockedToBottom
     }
     
+    // Properties that holds the last screen the window is on
+    var lastScreen: NSScreen? {
+        get {
+            if let screen = screen {
+                self.lastScreen = screen
+                return screen
+            }
+            else {
+                return self.lastScreen
+            }
+        }
+        set {}
+    }
+    
     // View Factory
     private let touchBarViewFactory = TouchBarViewFactory()
     
@@ -26,11 +40,11 @@ class TouchBarWindow: NSPanel, NSWindowDelegate {
     // Properties handling confinement
     override var contentView: NSView? {
         didSet {
-            if let newRestrictionView = confinementView, let contentView = contentView {
-                contentView.addSubview(newRestrictionView)
+            if let restrictionView = confinementView, let contentView = contentView {
+                contentView.addSubview(restrictionView) // This automatically removes confinementView from old contentView (as super view)
                 let constraints = [
-                    [NSLayoutConstraint(item: contentView, attribute: .width, relatedBy: .lessThanOrEqual, toItem: newRestrictionView, attribute: .width, multiplier: 1, constant: 0)],
-                    [NSLayoutConstraint(item: contentView, attribute: .height, relatedBy: .lessThanOrEqual, toItem: newRestrictionView, attribute: .height, multiplier: 1, constant: 0)]
+                    [NSLayoutConstraint(item: contentView, attribute: .width, relatedBy: .lessThanOrEqual, toItem: restrictionView, attribute: .width, multiplier: 1, constant: 0)],
+                    [NSLayoutConstraint(item: contentView, attribute: .height, relatedBy: .lessThanOrEqual, toItem: restrictionView, attribute: .height, multiplier: 1, constant: 0)]
                 ].reduce([], +)
                 contentView.addConstraints(constraints)
                 NSLayoutConstraint.activate(constraints)
@@ -75,8 +89,7 @@ class TouchBarWindow: NSPanel, NSWindowDelegate {
         let constrainedWidthFrame = {
             if (frameRect.width >= targetScreen.visibleFrame.width) {
                 let screenWidth = targetScreen.visibleFrame.width
-                let dWidth = frameRect.width - screenWidth
-                let rectifiedRect = NSRect(origin: frameRect.offsetBy(dx: -dWidth, dy: 0).origin, size: CGSize(width: targetScreen.visibleFrame.width, height: frameRect.height))
+                let rectifiedRect = NSRect(origin: frameRect.origin, size: CGSize(width: targetScreen.visibleFrame.width, height: frameRect.height))
                 return rectifiedRect
             }
             else {
@@ -86,9 +99,6 @@ class TouchBarWindow: NSPanel, NSWindowDelegate {
         
         return constrainedWidthFrame
     }
-    
-    // Properties that holds the last screen the window is on
-    // private var lastScreen: NSScreen? = nil
     
     // Properties & delegates func for handling Window Close
     var isClosed: Bool {
@@ -125,7 +135,7 @@ class TouchBarWindow: NSPanel, NSWindowDelegate {
             case (_, .floating):
                 hasTitle = true
                 startAnimations(duration: 0.35, animation:
-                                    moveAnimation(destination: destinationFrame(docking, hiding, inScreen: screen)) +
+                                    moveAnimation(destination: destinationFrame(for: docking, for: hiding, in: lastScreen)) +
                                 fadeAnimation(destination: 1.0)
                 )
                 renewretainingUpdateDeadline(infinite: true)
@@ -134,7 +144,7 @@ class TouchBarWindow: NSPanel, NSWindowDelegate {
                 fallthrough
             case (_, _):
                 hasTitle = false
-                startAnimations(duration: 0.35, animation: moveAnimation(destination: destinationFrame(docking, hiding, inScreen: NSScreen.atMouseLocation)))
+                startAnimations(duration: 0.35, animation: moveAnimation(destination: destinationFrame(for: docking, for: hiding, in: NSScreen.atMouseLocation)))
                 renewretainingUpdateDeadline(infinite: false)
                 break
             }
@@ -149,13 +159,14 @@ class TouchBarWindow: NSPanel, NSWindowDelegate {
                 break
             case (_, true) where oldValue != hiding:
                 startAnimations(duration: 0.35, animation:
-                                    moveAnimation(destination: destinationFrame(docking, hiding, inScreen: screen)) +
+                                    moveAnimation(destination: destinationFrame(for: docking, for: hiding, in: lastScreen)) +
                                 fadeAnimation(destination: 0.0) // FIXME: set alpha value all the way to 0 causes window to re-layout (no more boarders!)
                 )
             case (_, false) where oldValue != hiding:
-                setFrame(destinationFrame(docking, oldValue, inScreen: NSScreen.atMouseLocation), display: true) // FIXME: might be glitchy, move start first
+                moveToFrame(frame: destinationFrame(for: docking, for: oldValue, in: NSScreen.atMouseLocation))
+                //setFrame(destinationFrame(docking, oldValue, inScreen: NSScreen.atMouseLocation), display: true) // FIXME: ENCAP setFrame with LayoutConstraint ops
                 startAnimations(duration: 0.35, animation:
-                                    moveAnimation(destination: destinationFrame(docking, hiding, inScreen: NSScreen.atMouseLocation)) +
+                                    moveAnimation(destination: destinationFrame(for: docking, for: hiding, in: NSScreen.atMouseLocation)) +
                                 fadeAnimation(destination: 1.0)
                 )
             case (_, _):
@@ -193,7 +204,9 @@ class TouchBarWindow: NSPanel, NSWindowDelegate {
             //setContentSize(.init(width: 10, height: 10)) // FIXME: rm
             // Offsetting window frame should be Edge-triggering
             if oldValue != viewHasSideBar {
-                setFrame(frame.offsetBy(dx: (viewHasSideBar ? -22 : 22), dy: 0), display: true)
+                //setFrameOrigin(frame.origin.applying(.init(translationX: (viewHasSideBar ? -22 : 22), y: 0)))
+                moveToFrame(frame: frame.offsetBy(dx: (viewHasSideBar ? -22 : 22), dy: 0))
+                //setFrame(frame.offsetBy(dx: (viewHasSideBar ? -22 : 22), dy: 0), display: true)
             }
         }
     }
@@ -216,55 +229,6 @@ class TouchBarWindow: NSPanel, NSWindowDelegate {
         }
     }
     
-    // Properties & funcs for Mouse Detection
-    private var detectionRects: [CGRect] {
-        let windowFrame = frame
-        
-        let detectionRectArray = NSScreen.screens.map { screen in
-            let visibleFrame = screen.visibleFrame
-            let screenFrame = screen.frame
-            
-            switch (docking, hiding) {
-            case (.floating, _):
-                return CGRect.infinite//windowFrame
-            case (.dockedToBottom, false):
-                return CGRect(
-                    x: visibleFrame.midX - windowFrame.width / 2,
-                    y: screenFrame.minY,
-                    width: windowFrame.width,//visibleFrame.width,
-                    height: windowFrame.height + (screenFrame.height - visibleFrame.height - NSStatusBar.system.thickness)
-                )
-            case (.dockedToBottom, true):
-                return CGRect(x: visibleFrame.midX - windowFrame.width / 2,
-                              y: screenFrame.minY,
-                              width: windowFrame.width,
-                              height: 1)
-            case (.dockedToTop, false):
-                return CGRect(
-                    x: visibleFrame.midX - windowFrame.width / 2,
-                    // Without `+ 1`, the Touch Bar would glitch (toggling rapidly).
-                    y: screenFrame.minY + screenFrame.height - frame.height - NSStatusBar.system.thickness + 1,
-                    width: windowFrame.width,
-                    height: windowFrame.height + NSStatusBar.system.thickness
-                )
-            case (.dockedToTop, true):
-                return CGRect(
-                    x: visibleFrame.midX - windowFrame.width / 2,
-                    y: screenFrame.maxY,
-                    width: windowFrame.width,
-                    height: 1
-                )
-            }
-        }
-        
-        return detectionRectArray
-    }
-    private var isMouseDetected: Bool {
-        //NSLog("\(NSScreen.screens.map{return $0.visibleFrame}), \(detectionRects)")
-        //NSLog("\(NSEvent.mouseLocation), \(detectionRects.contains{$0.contains(NSEvent.mouseLocation)})")
-        return detectionRects.contains{$0.contains(NSEvent.mouseLocation)}
-    }
-    
     // Properties & funcs for handling Cyclical State Updates
     private var retainingUpdateDeadline = Date() + Defaults[.windowDetectionTimeOut]
     private func renewretainingUpdateDeadline(infinite: Bool) {
@@ -281,13 +245,13 @@ class TouchBarWindow: NSPanel, NSWindowDelegate {
                     hiding = false
                 }
                 else if screen != NSScreen.atMouseLocation {
-                    startAnimations(duration: 0.45, animation: teleportAnimation(destination: destinationFrame(docking, hiding, inScreen: NSScreen.atMouseLocation)))
+                    startAnimations(duration: 0.45, animation: teleportAnimation(destination: destinationFrame(for: docking, for: hiding, in: NSScreen.atMouseLocation)))
                 }
                 renewretainingUpdateDeadline(infinite: false)
             }
             else if shouldHandleResize {
                 isLiveResizeUnhandled = false
-                startAnimations(duration: 0.35, animation: moveAnimation(destination: destinationFrame(docking, hiding, inScreen: screen))) // FIXME: move, 0.35; tele, 0.45
+                startAnimations(duration: 0.35, animation: moveAnimation(destination: destinationFrame(for: docking, for: hiding, in: lastScreen))) // FIXME: move, 0.35; tele, 0.45
                 renewretainingUpdateDeadline(infinite: false)
             }
             else if Date() >= retainingUpdateDeadline {
@@ -418,6 +382,15 @@ class TouchBarWindow: NSPanel, NSWindowDelegate {
         windowAnimator.stop()
     }
     
+    // TODO: IMPLEMENT IT
+    private func moveToFrame(frame: NSRect) {
+        //let newConfinementView = NSView.frameView(from: frame)
+        
+        setFrameOrigin(frame.origin)
+        //setContentSize(frame.size)
+        //confinementView = newConfinementView
+    }
+    
     // Animation funcs
     private func moveAnimation(destination endFrame: CGRect) -> TouchBarAnimation.AnimationFunc {
         return {(startFrame, endFrame) in
@@ -439,8 +412,9 @@ class TouchBarWindow: NSPanel, NSWindowDelegate {
             
             return { [weak self] (currentProgress: Float, currentValue: Float) in
                 if currentProgress == 1.0 {
-                    NSLog("\(startFrame)->\(endFrame)")
-                    self?.setFrame(endFrame, display: true)
+                    //NSLog("\(startFrame)->\(endFrame)")
+                    self?.moveToFrame(frame: endFrame)
+                    //self?.setFrame(endFrame, display: true)
                 }
                 else {
                     //self?.updateConstraintsIfNeeded()
@@ -448,7 +422,8 @@ class TouchBarWindow: NSPanel, NSWindowDelegate {
                     
                     let currentTransform = scaleTranslateTransform(t)
                     let currentFrame = startFrame.applying(currentTransform)
-                    self?.setFrame(currentFrame, display: true)
+                    self?.moveToFrame(frame: currentFrame)
+                    //self?.setFrame(currentFrame, display: true)
                 }
             }}(frame, endFrame)
     }
@@ -480,7 +455,8 @@ class TouchBarWindow: NSPanel, NSWindowDelegate {
             return { [weak self] (currentProgress: Float, currentValue: Float) in
                 if currentProgress == 1.0 {
                     self?.alphaValue = savedAlphaValue
-                    self?.setFrame(endFrame, display: true)
+                    self?.moveToFrame(frame: endFrame)
+                    //self?.setFrame(endFrame, display: true)
                 }
                 else {
                     let t = CGFloat(currentValue)
@@ -488,11 +464,13 @@ class TouchBarWindow: NSPanel, NSWindowDelegate {
                     let currentTransform = scaleTranslateTransform(t)
                     if currentProgress <= 0.5 {
                         let currentFrame = startFrame.applying(currentTransform)
-                        self?.setFrame(currentFrame, display: true)
+                        self?.moveToFrame(frame: currentFrame)
+                        //self?.setFrame(currentFrame, display: true)
                     }
                     else {
                         let currentFrame = endFrame.applying(currentTransform)
-                        self?.setFrame(currentFrame, display: true)
+                        self?.moveToFrame(frame: currentFrame)
+                        //self?.setFrame(currentFrame, display: true)
                     }
                     
                     self?.alphaValue = scaledValue(t)
@@ -501,36 +479,142 @@ class TouchBarWindow: NSPanel, NSWindowDelegate {
     }
     
     // Funcs for calculating Window Move Destination
-    private func destinationOrigin(_ forDocking: Docking, _ forHiding: Bool, inScreen targetScreen: NSScreen?) -> CGPoint {
-        let savedValue = Defaults[.lastFloatingPosition]
+    func destinationFrame(for forDocking: Docking, for forHiding: Bool, in referenceFrame: NSRect, confineSizeBy confineFrame: NSRect, newSize: NSSize? = nil) -> NSRect {
+        
+        let size = newSize ?? frame.size
+        
         switch(forDocking, forHiding) {
         case (.floating, _):
-            return savedValue
-        case (.dockedToTop, false):
-            return alignedOrigin(.center, .top, inScreen: targetScreen)
-        case (.dockedToBottom, false):
-            return alignedOrigin(.center, .bottom, inScreen: targetScreen)
-        case (.dockedToTop, true):
-            return alignedOrigin(.center, .topOut, inScreen: targetScreen)
-        case (.dockedToBottom, true):
-            return alignedOrigin(.center, .bottomOut, inScreen: targetScreen)
-        }
-    }
-    private func destinationFrame(_ forDocking: Docking, _ forHiding: Bool, inScreen targetScreen: NSScreen?) -> CGRect {
-        switch(forDocking, forHiding) {
-        case (.floating, _):
-            let savedFrame = constrainFrameRect(CGRect(origin: destinationOrigin(forDocking, forHiding, inScreen: targetScreen), size: CGSize(width: frame.width, height: frame.height)), to: targetScreen)
-            if NSScreen.screens.map({return $0.visibleFrame.contains(savedFrame)}).contains(true) {
-                return savedFrame
+            let savedOrigin = Defaults[.lastFloatingPosition]
+            let frameFromSavedOrigin = NSRect(origin: savedOrigin, size: size)
+            
+            if referenceFrame.intersects(frameFromSavedOrigin) {
+                // Used to be NSScreen.screens.map({return $0.visibleFrame.contains(frameFromSavedOrigin)}).contains(true)
+                return frameFromSavedOrigin
             }
             else {
-                return constrainFrameRect(CGRect(origin: alignedOrigin(.center, .center, inScreen: targetScreen), size: CGSize(width: frame.width, height: frame.height)), to: targetScreen)
+                return NSRect(origin: .zero, size: size).sizeConfinedRect(with: confineFrame).alignedRect(alignX: .center, alignY: .center, with: referenceFrame)
             }
-        case (_, _):
-            let result = constrainFrameRect(CGRect(origin: destinationOrigin(forDocking, forHiding, inScreen: targetScreen), size: CGSize(width: frame.width, height: frame.height)), to: targetScreen)
-            //NSLog("\(targetScreen)->\(result)")
-            return result
+        case (.dockedToTop, true):
+            return NSRect(origin: .zero, size: size).sizeConfinedRect(with: confineFrame).alignedRect(alignX: .center, alignY: .topOut(padding: 1), with: referenceFrame)
+        case (.dockedToBottom, true):
+            return NSRect(origin: .zero, size: size).sizeConfinedRect(with: confineFrame).alignedRect(alignX: .center, alignY: .bottomOut(padding: 1), with: referenceFrame)
+        case (.dockedToTop, false):
+            return NSRect(origin: .zero, size: size).sizeConfinedRect(with: confineFrame).alignedRect(alignX: .center, alignY: .top(padding: 1), with: referenceFrame)
+        case (.dockedToBottom, false):
+            return NSRect(origin: .zero, size: size).sizeConfinedRect(with: confineFrame).alignedRect(alignX: .center, alignY: .bottom(padding: 1), with: referenceFrame)
         }
+    }
+    func destinationFrame(for forDocking: Docking, for forHiding: Bool, in screen: NSScreen?, newSize: NSSize? = nil) -> NSRect {
+        
+        guard let screen = screen else {
+            return .zero
+        }
+        
+        let size = newSize ?? frame.size
+        let referenceFrame = referernceFrame(for: forDocking, for: forHiding, in: screen)
+        let confineFrame = confinementFrame(for: forDocking, for: forHiding, in: screen)
+        
+        return destinationFrame(for: forDocking, for: forHiding, in: referenceFrame, confineSizeBy: confineFrame, newSize: newSize)
+    }
+    func referernceFrame(for forDocking: Docking, for forHiding: Bool, in screen: NSScreen?) -> NSRect {
+        
+        guard let screen = screen else {
+            return .zero
+        }
+        
+        let frame = screen.frame
+        let visibleFrame = screen.visibleFrame
+        
+        switch(forDocking, forHiding) {
+        case (.floating, _):
+            return visibleFrame
+        case (_, false):
+            // Reference frame is vertically centerd in screen frame, horizontally excluding the menubar & the dock, in total confined in screen's visible frame
+            
+            let lowestUpperY = min(frame.maxY - NSStatusBar.system.thickness, visibleFrame.maxY)
+            let referenceFrameHeight = lowestUpperY - visibleFrame.minY
+            let referenceFrameWidth = visibleFrame.width - (frame.width - visibleFrame.width) // A little more precise than visibleFrame.width + visibleFrame.width - frame.width
+            let referenceFrameSize = CGSize(width: referenceFrameWidth, height: referenceFrameHeight)
+            
+            return NSRect(origin: visibleFrame.origin,
+                          size: referenceFrameSize)
+        case (_, true):
+            return frame
+        }
+    }
+    func confinementFrame(for forDocking: Docking, for forHiding: Bool, in screen: NSScreen?) -> NSRect {
+        
+        guard let screen = screen else {
+            return .zero
+        }
+        
+        let frame = screen.frame
+        let visibleFrame = screen.visibleFrame
+        
+        switch(forDocking, forHiding) {
+        case (.floating, _):
+            return visibleFrame
+        case (_, _):
+            // Confinement frame is vertically centerd in screen frame, horizontally excluding the menubar & the dock, in total confined in screen's visible frame
+            
+            let lowestUpperY = min(frame.maxY - NSStatusBar.system.thickness, visibleFrame.maxY)
+            let referenceFrameHeight = lowestUpperY - visibleFrame.minY
+            let referenceFrameWidth = visibleFrame.width - (frame.width - visibleFrame.width) // A little more precise than visibleFrame.width + visibleFrame.width - frame.width
+            let referenceFrameSize = CGSize(width: referenceFrameWidth, height: referenceFrameHeight)
+            
+            return NSRect(origin: visibleFrame.origin,
+                          size: referenceFrameSize)
+        }
+    }
+    func detectionFrame(for forDocking: Docking, for forHiding: Bool, in screen: NSScreen) -> NSRect {
+        let size: NSSize
+        switch (forHiding) {
+        case true:
+            size = NSSize(width: frame.width, height: 2)
+        case false:
+            size = frame.size
+        }
+        
+        let frame = screen.frame
+        let visibleFrame = screen.visibleFrame
+        
+        switch(forDocking, forHiding) {
+        case (.floating, _):
+            return .zero
+        case (.dockedToTop, true):
+            return NSRect(origin: .zero, size: size)
+                .sizeConfinedRect(with: confinementFrame(for: forDocking, for: forHiding, in: screen))
+                .alignedRect(alignX: .center, alignY: .top(padding: 0),
+                             with: referernceFrame(for: forDocking, for: forHiding, in: screen))
+                .expandedRect(options: [.top(padding: -1)], with: screen.frame)
+        case (.dockedToTop, false):
+            return NSRect(origin: .zero, size: size)
+                .sizeConfinedRect(with: confinementFrame(for: forDocking, for: forHiding, in: screen))
+                .alignedRect(alignX: .center, alignY: .top(padding: 0),
+                             with: referernceFrame(for: forDocking, for: forHiding, in: screen))
+                .expandedRect(options: [.top(padding: -1)], with: screen.frame)
+        case (.dockedToBottom, true):
+            return NSRect(origin: .zero, size: size)
+                .sizeConfinedRect(with: confinementFrame(for: forDocking, for: forHiding, in: screen))
+                .alignedRect(alignX: .center, alignY: .bottom(padding: 0),
+                             with: referernceFrame(for: forDocking, for: forHiding, in: screen))
+                .expandedRect(options: [.bottom(padding: 0)], with: screen.frame)
+        case (.dockedToBottom, false):
+            return NSRect(origin: .zero, size: size)
+                .sizeConfinedRect(with: confinementFrame(for: forDocking, for: forHiding, in: screen))
+                .alignedRect(alignX: .center, alignY: .bottom(padding: 0),
+                             with: referernceFrame(for: forDocking, for: forHiding, in: screen))
+                .expandedRect(options: [.bottom(padding: 0)], with: screen.frame)
+        }
+    }
+    // Properties & funcs for Mouse Detection
+    private var isMouseDetected: Bool {
+        //NSLog("\(NSScreen.screens.map{return $0.visibleFrame}), \(detectionRects)")
+        //NSLog("\(NSEvent.mouseLocation), \(detectionRects.contains{$0.contains(NSEvent.mouseLocation)})")
+        return NSScreen.screens.map({detectionFrame(for: docking, for: hiding, in: $0).contains(NSEvent.mouseLocation)}).reduce(false, {$0 || $1})
+        
+        //return detectionRects.contains{$0.contains(NSEvent.mouseLocation)}
     }
     
     // Slot funcs for UI Elements

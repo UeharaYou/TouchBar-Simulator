@@ -34,6 +34,7 @@
 		FB6D83DB2AC4A08B00777DB8 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = FB6D83DA2AC4A08B00777DB8 /* Localizable.xcstrings */; };
 		FB89D7D42ACB76EC00CE02E6 /* NSScreen+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB89D7D32ACB76EC00CE02E6 /* NSScreen+Extensions.swift */; };
 		FBC3CF242AC46A5400279557 /* Globals.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB13F6732A88246400212F02 /* Globals.swift */; };
+		FBDE596A2ACDF40F00B41F84 /* NSRect+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBDE59692ACDF40F00B41F84 /* NSRect+Extensions.swift */; };
 		FBE131A02AC9C611002DA226 /* NSView+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBE1319F2AC9C611002DA226 /* NSView+Extensions.swift */; };
 		FBF7C67E2A9BD7F90069DDD2 /* TouchBarAnimation.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBF7C67D2A9BD7F90069DDD2 /* TouchBarAnimation.swift */; };
 /* End PBXBuildFile section */
@@ -106,6 +107,7 @@
 		FB44A44A2ACCB3E40086FB45 /* TouchBarSimulator.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = TouchBarSimulator.xctestplan; sourceTree = "<group>"; };
 		FB6D83DA2AC4A08B00777DB8 /* Localizable.xcstrings */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		FB89D7D32ACB76EC00CE02E6 /* NSScreen+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NSScreen+Extensions.swift"; sourceTree = "<group>"; };
+		FBDE59692ACDF40F00B41F84 /* NSRect+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NSRect+Extensions.swift"; sourceTree = "<group>"; };
 		FBE1319F2AC9C611002DA226 /* NSView+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NSView+Extensions.swift"; sourceTree = "<group>"; };
 		FBF7C67D2A9BD7F90069DDD2 /* TouchBarAnimation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TouchBarAnimation.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -228,6 +230,7 @@
 				FB13F67D2A88259900212F02 /* NSWindow+Extensions.swift */,
 				FB3235362AC32A8F004A50A1 /* String+Extensions.swift */,
 				FBE1319F2AC9C611002DA226 /* NSView+Extensions.swift */,
+				FBDE59692ACDF40F00B41F84 /* NSRect+Extensions.swift */,
 			);
 			path = Extensions;
 			sourceTree = "<group>";
@@ -426,6 +429,7 @@
 				FB3235372AC32A8F004A50A1 /* String+Extensions.swift in Sources */,
 				FB13F67F2A88259900212F02 /* NSWindow+Extensions.swift in Sources */,
 				FB89D7D42ACB76EC00CE02E6 /* NSScreen+Extensions.swift in Sources */,
+				FBDE596A2ACDF40F00B41F84 /* NSRect+Extensions.swift in Sources */,
 				FB13F6812A8825A500212F02 /* Utils.swift in Sources */,
 				FB13F67E2A88259900212F02 /* Defaults+Extensions.swift in Sources */,
 				FB32352B2AC2D598004A50A1 /* TouchBarView.swift in Sources */,

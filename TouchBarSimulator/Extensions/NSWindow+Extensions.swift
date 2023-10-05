@@ -12,83 +12,7 @@ extension NSWindow {
 }
 
 extension NSWindow {
-    enum ScreenXPositioning {
-        case retained
-        case leftOut
-        case left
-        case center
-        case right
-        case rightOut
-    }
 
-    enum ScreenYPositioning {
-        case retained
-        case topOut
-        case top
-        case center
-        case bottom
-        case bottomOut
-    }
-
-    func alignedOrigin(_ xPositioning: ScreenXPositioning, _ yPositioning: ScreenYPositioning, inScreen targetScreen: NSScreen? = NSScreen.main) -> CGPoint {
-        guard let screen = targetScreen, NSScreen.screens.contains(screen)
-        else {
-            return CGPoint(x: 0,y: 0) 
-        }
-        
-        let screenVisibleFrame = screen.visibleFrame
-        let screenFullFrame = screen.frame
-        
-        let constraintFrame = constrainFrameRect(frame, to: screen)
-
-        let x: Double
-        let y: Double
-        switch xPositioning {
-        case .leftOut:
-            x = screenFullFrame.minX - constraintFrame.width - 1
-        case .left:
-            x = screenVisibleFrame.minX
-        case .center:
-            // Fix: if new frame is contained in screenVisibleFrame (in X axie), prioritize alignment with screenFullFrame.
-            // This fixes slight mis-alignment with screen center if the dock is placed on the left/right.
-            if screenFullFrame.midX - constraintFrame.width >= screenVisibleFrame.minX
-                && screenFullFrame.midX + constraintFrame.width <= screenVisibleFrame.maxX {
-                x = screenFullFrame.midX - constraintFrame.width / 2
-            }
-            else {
-                x = screenVisibleFrame.midX - constraintFrame.width / 2
-            }
-        case .right:
-            x = screenVisibleFrame.maxX - constraintFrame.width
-        case .rightOut:
-            x = screenFullFrame.maxX + 1
-        case .retained:
-            x = constraintFrame.origin.x
-        }
-        switch yPositioning {
-        case .topOut:
-            y = screenFullFrame.maxY + 1
-        case .top:
-            // Fix: Keep docked windows below menubar area.
-            // Previously, the window would obstruct menubar clicks when the menubar was set to auto-hide.
-            // Now, the window stays below that area.
-            let menubarThickness = NSStatusBar.system.thickness
-            y = min(screenVisibleFrame.maxY - constraintFrame.height, screenFullFrame.maxY - menubarThickness - constraintFrame.height)
-        case .center:
-            y = screenVisibleFrame.midY - constraintFrame.height / 2
-        case .bottom:
-            // Fix: conflicts when customizing control strip (+1px for system behavior)
-            y = screenVisibleFrame.minY + 1
-        case .bottomOut:
-            y = screenFullFrame.minY - constraintFrame.height - 1
-        case .retained:
-            y = constraintFrame.origin.y
-        }
-
-        return CGPoint(x: x, y: y)
-        //return CGRect(x: x, y: y, width: frame.width, height: frame.height)
-    }
-    
 }
 
 
@@ -110,3 +34,4 @@ extension NSWindow.Level {
     static let minimum = level(for: .minimumWindow)
     static let maximum = level(for: .maximumWindow)
 }
+
