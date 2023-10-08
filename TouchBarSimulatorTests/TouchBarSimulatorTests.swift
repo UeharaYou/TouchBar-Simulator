@@ -140,12 +140,12 @@ final class TouchBarSimulatorTests: XCTestCase {
         // Put teardown code here. This method is called after the invocation of each test method in the class.
     }
     
-    func testScreenView() throws {
+    func testScreenView() async throws {
         let viewTuples = NSScreen.frameViews
         let expectation = XCTestExpectation(description: "Test: \(#function).")
         
-        DispatchQueue.main.async {
-            let _ = viewTuples.map {
+        let windowList = await withCheckedContinuation { continuation in
+            let windowList = viewTuples.map {
                 let (screen, _, visibleView) = $0
                 let window = NSWindow()
                 let button = NSButton(title: "Screen Visible Frame. Click to Dismiss.", target: window, action: #selector(NSWindow.close))
@@ -176,9 +176,17 @@ final class TouchBarSimulatorTests: XCTestCase {
             let manualVote = TestFeedBackWindow()
             manualVote.expectation = expectation
             manualVote.show()
+            let timer = Timer(timeInterval: 1, repeats: false)
+            { _ in
+                //Thread.sleep(forTimeInterval: 1)
+                continuation.resume(with: .success(windowList))
+            }
+            RunLoop.main.add(timer, forMode: .default)
         }
         
-        wait(for: [expectation])
+        await fulfillment(of: [expectation])
+        
+        _ = windowList.map{$0.close()}
         
         return
 
@@ -193,8 +201,8 @@ final class TouchBarSimulatorTests: XCTestCase {
             return (window, screen, visibleView)
         }
         
-        await withCheckedContinuation { continuation in
-            _ = tuple.map { (window, screen, visibleView) in
+        let windowList = await withCheckedContinuation { continuation in
+            let windowList = tuple.map { (window, screen, visibleView) in
                 window.confinementView = visibleView
                 window.title = "Touch Bar [Test Window]"
                 window.setUp()
@@ -203,19 +211,22 @@ final class TouchBarSimulatorTests: XCTestCase {
                 window.setFrame(NSRect(origin: screen.visibleFrame.origin, size: visibleView.fittingSize) , display: true)
                 //window.setContentSize(visibleView.fittingSize)
                 window.orderFrontRegardless()
+                
+                return window
             }
             let timer = Timer(timeInterval: 1, repeats: false)
             { _ in
                 //Thread.sleep(forTimeInterval: 1)
-                continuation.resume()
+                continuation.resume(with: .success(windowList))
             }
             RunLoop.main.add(timer, forMode: .default)
         }
         
-        await withCheckedContinuation { continuation in
-            _  = tuple.map { (window, screen, visibleView) in
-                for docking in [TouchBarWindow.Docking.dockedToTop, .dockedToBottom] {
-                    let newWindow = TestFeedBackWindow()
+        let frameWindowList = await withCheckedContinuation { continuation in
+            let frameWindowList = tuple.map { (window, screen, visibleView) in
+                let array = [TouchBarWindow.Docking.dockedToTop, .dockedToBottom].map { docking in
+                    let newWindow = NSWindow()
+                    newWindow.isReleasedWhenClosed = false // WATCH OUT: WITHOUT THIS LINE, THERE WILL BE A MEMORY CORRUPTION (DOUBLE FREE)!!!!!!!
                     newWindow.styleMask = []
                     let destFrame = window.destinationFrame(for: docking, for: false, in: screen)
                     let destView = NSView.frameView(from: destFrame)
@@ -229,12 +240,15 @@ final class TouchBarSimulatorTests: XCTestCase {
                     newWindow.alphaValue = 0.5
                     newWindow.setFrame(destFrame, display: true)
                     newWindow.orderFrontRegardless()
+                    return newWindow
                 }
-            }
+                return array
+            }.reduce([] as [NSWindow], +)
+            
             let timer = Timer(timeInterval: 0.5, repeats: false)
             { _ in
                 //Thread.sleep(forTimeInterval: 1)
-                continuation.resume()
+                continuation.resume(with: .success(frameWindowList))
             }
             RunLoop.main.add(timer, forMode: .default)
         }
@@ -244,7 +258,8 @@ final class TouchBarSimulatorTests: XCTestCase {
         manualVote.show()
         
         await fulfillment(of: [expectation])
-        
+        _ = windowList.map{$0.close()}
+        _ = frameWindowList.map{$0.close()}
         return
 
     }
@@ -259,8 +274,8 @@ final class TouchBarSimulatorTests: XCTestCase {
             return (window, screen, visibleView)
         }
         
-        await withCheckedContinuation { continuation in
-            _  = tuple.map { (window, screen, visibleView) in
+        let windowList = await withCheckedContinuation { continuation in
+            let windowList = tuple.map { (window, screen, visibleView) in
                 window.confinementView = visibleView
                 window.title = "Touch Bar [Test Window]"
                 window.setUp()
@@ -269,21 +284,22 @@ final class TouchBarSimulatorTests: XCTestCase {
                 window.setFrame(NSRect(origin: screen.visibleFrame.origin, size: visibleView.fittingSize) , display: true)
                 //window.setContentSize(visibleView.fittingSize)
                 window.orderFrontRegardless()
+                return window
             }
             let timer = Timer(timeInterval: 1, repeats: false)
             { _ in
                 //Thread.sleep(forTimeInterval: 1)
-                continuation.resume()
+                continuation.resume(with: .success(windowList))
             }
             RunLoop.main.add(timer, forMode: .default)
         }
-        await withCheckedContinuation { continuation in
-            _  = tuple.map { (window, screen, visibleView) in
-                for docking in [TouchBarWindow.Docking.dockedToTop, .dockedToBottom] {
-                    for hiding in [true, false] {
-                        //Thread.sleep(forTimeInterval: 1)
+       
+        let frameWindowList = await withCheckedContinuation { continuation in
+            let frameWindowList = tuple.map { (window, screen, visibleView) in
+                return [TouchBarWindow.Docking.dockedToTop].map { docking in
+                    return ([true, false] as [Bool]).map { hiding in
                         let newWindow = NSWindow()
-                        newWindow.level = .assistiveTechHigh
+                        newWindow.isReleasedWhenClosed = false // WATCH OUT: WITHOUT THIS LINE, THERE WILL BE A MEMORY CORRUPTION (DOUBLE FREE)!!!!!!!
                         newWindow.styleMask = []
                         let destFrame = window.detectionFrame(for: docking, for: hiding, in: screen)
                         let destView = NSView.frameView(from: destFrame)
@@ -297,33 +313,37 @@ final class TouchBarSimulatorTests: XCTestCase {
                         newWindow.alphaValue = 0.5
                         newWindow.setFrame(destFrame, display: true)
                         newWindow.orderFrontRegardless()
+                        return newWindow
                     }
-                }
-            }
+                }.reduce([], +) as [NSWindow]
+            }.reduce([], +) as [NSWindow]
+            
             let timer = Timer(timeInterval: 0.5, repeats: false)
             { _ in
                 //Thread.sleep(forTimeInterval: 1)
-                continuation.resume()
+                continuation.resume(with: .success(frameWindowList))
             }
             RunLoop.main.add(timer, forMode: .default)
         }
+        
         let manualVote = TestFeedBackWindow()
         manualVote.expectation = expectation
         manualVote.show()
         
         
         await fulfillment(of: [expectation])
-        
+        _ = windowList.map{$0.close()}
+        _ = frameWindowList.map{$0.close();}
         return
 
     }
     
-    func testIndependentTouchBarView() throws {
+    func testIndependentTouchBarView() async throws {
         let viewTuples = [(NSScreen.main!, NSView(), NSView.frameView(from: .init(origin: .init(x: 0, y: 0), size: .init(width: 300, height: 100))))]//NSScreen.frameViews
         let expectation = XCTestExpectation(description: "Test: \(#function).")
         
-        DispatchQueue.main.async {
-            let _ = viewTuples.map {
+        let windowList = await withCheckedContinuation { continuation in
+            let windowList = viewTuples.map {
                 let (screen, _, visibleView) = $0
                 let window = TouchBarWindow()
                 window.confinementView = visibleView
@@ -337,21 +357,27 @@ final class TouchBarSimulatorTests: XCTestCase {
                 
                 return window
             }
-            
-            let manualVote = TestFeedBackWindow()
-            manualVote.expectation = expectation
-            manualVote.show()
+            let timer = Timer(timeInterval: 0.5, repeats: false)
+            { _ in
+                //Thread.sleep(forTimeInterval: 1)
+                continuation.resume(with: .success(windowList))
+            }
+            RunLoop.main.add(timer, forMode: .default)
         }
         
-        wait(for: [expectation])
+        let manualVote = TestFeedBackWindow()
+        manualVote.expectation = expectation
+        manualVote.show()
         
+        await fulfillment(of: [expectation])
+        _ = windowList.map{$0.close()}
         return
 
     }
     
     /*
     func testPerformanceExample() async throws {
-        await withCheckedContinuation { continuation in
+        _ = await withCheckedContinuation { continuation in
             let timer = Timer(timeInterval: 1, repeats: false) { timer in
                 continuation.resume()
             }

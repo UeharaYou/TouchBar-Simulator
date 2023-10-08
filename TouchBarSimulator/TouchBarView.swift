@@ -5,7 +5,7 @@
 //  Created by 上原葉 on 9/26/23.
 //
 
-import Foundation
+import AppKit
 
 class TouchBarView: NSView {
     

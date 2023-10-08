@@ -5,7 +5,7 @@
 //  Created by 上原葉 on 10/3/23.
 //
 
-import Foundation
+import AppKit
 
 extension NSScreen {
     static var atMouseLocation: NSScreen? {

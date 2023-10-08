@@ -8,28 +8,30 @@
 import AppKit
 import Defaults
 
+extension TouchBarWindow.Docking: Defaults.Serializable {}
+extension CGPoint: Defaults.Serializable {}
+extension CGRect: Defaults.Serializable {}
+extension CGSize: Defaults.Serializable {}
+
+extension Defaults.Keys {
+    static let windowDocking = Key<TouchBarWindow.Docking>("windowDocking", default: .floating)
+    static let lastFloatingPosition = Key<CGPoint>("lastFloatingPosition", default: CGPoint(x: 0, y: 0))
+    static let lastWindowFrame = Key<CGRect>("lastWindowFrame", default: CGRect(x: 0, y: 0, width: 1014, height: 60))
+    static let windowDetectionTimeOut = Key<TimeInterval>("windowDetectionTimeOut", default: TimeInterval(1.5))
+}
+
 class TouchBarWindow: NSPanel, NSWindowDelegate {
-    
     enum Docking: String, Codable {
         case floating
         case dockedToTop
         case dockedToBottom
     }
-    
-    // Properties that holds the last screen the window is on
-    var lastScreen: NSScreen? {
-        get {
-            if let screen = screen {
-                self.lastScreen = screen
-                return screen
-            }
-            else {
-                return self.lastScreen
-            }
-        }
-        set {}
+    enum Hiding: String, Codable {
+        case hidden
+        case shown
     }
-    
+    typealias GetFrameFunc = (_ for: Docking, _ for: Hiding) -> NSRect
+        
     // View Factory
     private let touchBarViewFactory = TouchBarViewFactory()
     
@@ -53,7 +55,7 @@ class TouchBarWindow: NSPanel, NSWindowDelegate {
             }
         }
     }
-    var confinementView: NSView? = nil {
+    private var confinementView: NSView? = nil {
         didSet {
             if let oldRestrictionView = oldValue {
                 oldRestrictionView.removeFromSuperview()
@@ -78,26 +80,8 @@ class TouchBarWindow: NSPanel, NSWindowDelegate {
         _ frameRect: NSRect,
         to screen: NSScreen?
     ) -> NSRect {
-        let frameRect = super.constrainFrameRect(frameRect, to: screen)
-        
-        guard let targetScreen = screen else {
-            return frameRect
-        }
-        
-        // FIXME: Does not work!!! Constraint of content size override it!!!
-        // Probable workaround: Add constraint link with contentView to a new view
-        let constrainedWidthFrame = {
-            if (frameRect.width >= targetScreen.visibleFrame.width) {
-                let screenWidth = targetScreen.visibleFrame.width
-                let rectifiedRect = NSRect(origin: frameRect.origin, size: CGSize(width: targetScreen.visibleFrame.width, height: frameRect.height))
-                return rectifiedRect
-            }
-            else {
-                return frameRect
-            }
-        }()
-        
-        return constrainedWidthFrame
+        // This does not constraint the size over layoutConstraint, so just invalidate it.
+        return frameRect
     }
     
     // Properties & delegates func for handling Window Close
@@ -129,44 +113,44 @@ class TouchBarWindow: NSPanel, NSWindowDelegate {
     }
     
     // Major properties
-    var docking: Docking = Defaults[.windowDocking] {
+    var docking: Docking = Defaults[.windowDocking] { // FIXME: Uncouple defaults
         didSet {
             switch (oldValue, docking) {
             case (_, .floating):
                 hasTitle = true
                 startAnimations(duration: 0.35, animation:
-                                    moveAnimation(destination: destinationFrame(for: docking, for: hiding, in: lastScreen)) +
+                                    moveAnimation(destination: destinationFrame(docking, hiding)) + // last screen
                                 fadeAnimation(destination: 1.0)
                 )
                 renewretainingUpdateDeadline(infinite: true)
             case (.floating, .dockedToTop), (.floating, .dockedToBottom):
-                Defaults[.lastFloatingPosition] = frame.origin
+                Defaults[.lastFloatingPosition] = frame.origin // FIXME: Uncouple defaults
                 fallthrough
             case (_, _):
                 hasTitle = false
-                startAnimations(duration: 0.35, animation: moveAnimation(destination: destinationFrame(for: docking, for: hiding, in: NSScreen.atMouseLocation)))
+                startAnimations(duration: 0.35, animation: moveAnimation(destination: destinationFrame(docking, hiding)))
                 renewretainingUpdateDeadline(infinite: false)
                 break
             }
-            Defaults[.windowDocking] = docking
+            Defaults[.windowDocking] = docking // FIXME: Uncouple Defaults
         }
     }
-    private var hiding: Bool = false {
+    private var hiding: Hiding = .shown {
         didSet {
             switch (docking, hiding) {
-            case (.floating, _) where hiding == true:
-                hiding = false
+            case (.floating, .hidden):
+                hiding = .shown
                 break
-            case (_, true) where oldValue != hiding:
+            case (_, .hidden) where oldValue != hiding:
                 startAnimations(duration: 0.35, animation:
-                                    moveAnimation(destination: destinationFrame(for: docking, for: hiding, in: lastScreen)) +
+                                    moveAnimation(destination: destinationFrame(docking, hiding)) + // last screen
                                 fadeAnimation(destination: 0.0) // FIXME: set alpha value all the way to 0 causes window to re-layout (no more boarders!)
                 )
-            case (_, false) where oldValue != hiding:
-                moveToFrame(frame: destinationFrame(for: docking, for: oldValue, in: NSScreen.atMouseLocation))
+            case (_, .shown) where oldValue != hiding:
+                moveToFrame(frame: destinationFrame(docking, hiding))
                 //setFrame(destinationFrame(docking, oldValue, inScreen: NSScreen.atMouseLocation), display: true) // FIXME: ENCAP setFrame with LayoutConstraint ops
                 startAnimations(duration: 0.35, animation:
-                                    moveAnimation(destination: destinationFrame(for: docking, for: hiding, in: NSScreen.atMouseLocation)) +
+                                    moveAnimation(destination: destinationFrame(docking, hiding)) +
                                 fadeAnimation(destination: 1.0)
                 )
             case (_, _):
@@ -201,7 +185,6 @@ class TouchBarWindow: NSPanel, NSWindowDelegate {
             updateConstraintsIfNeeded()
             
             setContentSize(newContentView.getFittingRect(withMinimunHeight: oldContentHeight))
-            //setContentSize(.init(width: 10, height: 10)) // FIXME: rm
             // Offsetting window frame should be Edge-triggering
             if oldValue != viewHasSideBar {
                 //setFrameOrigin(frame.origin.applying(.init(translationX: (viewHasSideBar ? -22 : 22), y: 0)))
@@ -230,9 +213,9 @@ class TouchBarWindow: NSPanel, NSWindowDelegate {
     }
     
     // Properties & funcs for handling Cyclical State Updates
-    private var retainingUpdateDeadline = Date() + Defaults[.windowDetectionTimeOut]
+    private var retainingUpdateDeadline = Date() + Defaults[.windowDetectionTimeOut] // FIXME: Uncouple Defaults
     private func renewretainingUpdateDeadline(infinite: Bool) {
-        retainingUpdateDeadline = infinite ? .distantFuture : Date() + Defaults[.windowDetectionTimeOut]
+        retainingUpdateDeadline = infinite ? .distantFuture : Date() + Defaults[.windowDetectionTimeOut] // FIXME: Uncouple Defaults
     }
     private func handleCyclicalUpdate() {
         let shouldHandleResize = isLiveResizeUnhandled && !inLiveResize
@@ -241,21 +224,21 @@ class TouchBarWindow: NSPanel, NSWindowDelegate {
             break
         case (.dockedToTop, _), (.dockedToBottom, _):
             if isMouseDetected {
-                if hiding == true {
-                    hiding = false
+                if hiding == .hidden {
+                    hiding = .shown
                 }
                 else if screen != NSScreen.atMouseLocation {
-                    startAnimations(duration: 0.45, animation: teleportAnimation(destination: destinationFrame(for: docking, for: hiding, in: NSScreen.atMouseLocation)))
+                    startAnimations(duration: 0.45, animation: teleportAnimation(destination: destinationFrame(docking, hiding))) // screen atMouseLocation
                 }
                 renewretainingUpdateDeadline(infinite: false)
             }
             else if shouldHandleResize {
                 isLiveResizeUnhandled = false
-                startAnimations(duration: 0.35, animation: moveAnimation(destination: destinationFrame(for: docking, for: hiding, in: lastScreen))) // FIXME: move, 0.35; tele, 0.45
+                startAnimations(duration: 0.35, animation: moveAnimation(destination: destinationFrame(docking, hiding))) // last screen, FIXME: move, 0.35;  tele, 0.45
                 renewretainingUpdateDeadline(infinite: false)
             }
             else if Date() >= retainingUpdateDeadline {
-                hiding = true
+                hiding = .shown
             }
         }
         
@@ -292,8 +275,6 @@ class TouchBarWindow: NSPanel, NSWindowDelegate {
         buttonUp.translatesAutoresizingMaskIntoConstraints = false
         buttonUp.isBordered = false
         buttonUp.bezelStyle = .shadowlessSquare
-        //buttonUp.frame = CGRect(x: toolBoxView.frame.width - 57, y: 4, width: 16, height: 11)
-        //buttonUp.autoresizingMask.insert(NSView.AutoresizingMask.minXMargin)
         buttonUp.action = #selector(TouchBarWindow.dockUpPressed)
         toolBoxView.addSubview(buttonUp)
         
@@ -310,8 +291,6 @@ class TouchBarWindow: NSPanel, NSWindowDelegate {
         buttonDown.translatesAutoresizingMaskIntoConstraints = false
         buttonDown.isBordered = false
         buttonDown.bezelStyle = .shadowlessSquare
-        //buttonDown.frame = CGRect(x: toolBoxView.frame.width - 38, y: 4, width: 16, height: 11)
-        //buttonDown.autoresizingMask.insert(NSView.AutoresizingMask.minXMargin)
         buttonDown.action = #selector(TouchBarWindow.dockDownPressed)
         toolBoxView.addSubview(buttonDown)
         
@@ -328,8 +307,6 @@ class TouchBarWindow: NSPanel, NSWindowDelegate {
         buttonSettings.translatesAutoresizingMaskIntoConstraints = false
         buttonSettings.isBordered = false
         buttonSettings.bezelStyle = .shadowlessSquare
-        //buttonSettings.frame = CGRect(x: toolBoxView.frame.width - 19, y: 4, width: 16, height: 11)
-        //buttonSettings.autoresizingMask.insert(NSView.AutoresizingMask.minXMargin)
         buttonSettings.action = #selector(TouchBarWindow.settingsPressed)
         toolBoxView.addSubview(buttonSettings)
         
@@ -479,6 +456,169 @@ class TouchBarWindow: NSPanel, NSWindowDelegate {
     }
     
     // Funcs for calculating Window Move Destination
+    fileprivate var destinationFrame: (_ for: Docking, _ hiding: Hiding) -> NSRect = {(_, _) in
+        return .zero
+    }
+    fileprivate var detectionFrame: (_ docking: Docking, _ hiding: Hiding) -> NSRect = {(_, _) in
+        return .zero
+    }
+    
+    // Properties & funcs for Mouse Detection
+    private var isMouseDetected: Bool {
+        return detectionFrame(docking, hiding).contains(NSEvent.mouseLocation)
+    }
+    
+    // Slot funcs for UI Elements
+    @objc func dockDownPressed(_: NSButton) {
+        docking = .dockedToBottom
+    }
+    @objc func dockUpPressed(_: NSButton) {
+        docking = .dockedToTop
+    }
+    @objc func viewSideButtonPressed(_ sender: NSButton) {
+        if let event = NSApp.currentEvent {
+            
+            let isOptionKeyPressed = event.modifierFlags.contains(NSEvent.ModifierFlags.option)
+            let isComandKeyPressed = event.modifierFlags.contains(NSEvent.ModifierFlags.command)
+            
+            switch (isComandKeyPressed, isOptionKeyPressed) {
+            case (true, _):
+                TouchBarContextMenu.showContextMenu(sender)
+            case (false, true):
+                close()
+            case (false, false):
+                docking = .floating
+            }
+        }
+    }
+    @objc func settingsPressed(_ sender: NSButton) {
+        TouchBarContextMenu.showContextMenu(sender)
+    }
+    
+    // Convenient init
+    init() {
+        //screenDesignation = screen
+        super.init(
+            contentRect: .zero,
+            styleMask: [
+                //.titled,
+                .closable,
+                .nonactivatingPanel,
+                .hudWindow, // Setting this flag always renders title bar in darkAqua...
+                .resizable,
+                .utilityWindow,
+            ],
+            backing: .buffered,
+            defer: false
+        )
+        cyclicalUpdateTimer = {
+            Timer(timeInterval: 0.5, repeats: true) {timer in
+                self.handleCyclicalUpdate()
+            }
+        }()
+        delegate = self
+        isReleasedWhenClosed = false
+        collectionBehavior = .canJoinAllSpaces
+        title = "Touch Bar".localized
+        level = .utility
+        backgroundColor = .clear
+        isOpaque = false
+        isRestorable = true
+        hidesOnDeactivate = false
+        worksWhenModal = true
+        acceptsMouseMovedEvents = true
+        isMovableByWindowBackground = false
+        appearance = NSAppearance(named: NSAppearance.Name.darkAqua) // As `.hudWindow` flag set, we always render the window in darkAqua
+        
+        contentView = NSView()
+    }
+    //private static let instance = TouchBarWindow()
+    
+    // Class funcs for accessing singleton object
+    func setUp() {
+        let previousDocking = Defaults[.windowDocking] // FIXME: Uncouple Defaults
+        let previousFrame = Defaults[.lastWindowFrame] // FIXME: Uncouple Defaults
+        
+        switch previousDocking {
+        case .floating:
+            hasTitle = true
+            setFrame(previousFrame, display: true)
+        case .dockedToTop:
+            hasTitle = false
+            setFrame(previousFrame, display: true)
+        case .dockedToBottom:
+            hasTitle = false
+            setFrame(previousFrame, display: true)
+        }
+        
+        //docking = previousDocking
+        
+        // Add cyclicalObserver
+        cyclicalUpdateTimer = Timer(timeInterval: 0.5, repeats: true) {[weak self] timer in
+            self?.handleCyclicalUpdate()
+        }
+        
+        // Show instance
+        orderFrontRegardless()
+    }
+    func finishUp() {
+        // Remove cyclicalObserver
+        cyclicalUpdateTimer?.invalidate()
+        cyclicalUpdateTimer = nil
+        
+        // save last float position
+        if docking == .floating {
+            Defaults[.lastFloatingPosition] = frame.origin // FIXME: Uncouple Defaults
+        }
+        
+        Defaults[.lastWindowFrame] = frame // FIXME: Uncouple Defaults
+    }
+}
+
+class TouchBarFactory {
+    func generate() -> TouchBarWindow {
+        return TouchBarWindow()
+    }
+}
+
+class TouchBarWindowManager {
+    
+    var touchBarFactory = TouchBarFactory()
+    
+    static let instance = TouchBarWindow()
+    
+    static var isClosed: Bool {
+        return instance.isClosed
+    }
+    
+    static var showOnAllDesktops = true {
+        didSet {
+            if showOnAllDesktops {
+                instance.collectionBehavior = .canJoinAllSpaces
+            } else {
+                instance.collectionBehavior = .moveToActiveSpace
+            }
+        }
+    }
+    static var dockSetting: TouchBarWindow.Docking = .floating {
+        didSet {
+            instance.docking = dockSetting
+        }
+    }
+    
+    static func setUp() {
+        instance.setUp()
+    }
+    
+    static func finishUp() {
+        instance.finishUp()
+    }
+    
+}
+
+// return NSScreen.screens.map({detectionFrame(for: docking, for: hiding, in: $0).contains(NSEvent.mouseLocation)}).reduce(false, {$0 || $1})
+
+/*
     func destinationFrame(for forDocking: Docking, for forHiding: Bool, in referenceFrame: NSRect, confineSizeBy confineFrame: NSRect, newSize: NSSize? = nil) -> NSRect {
         
         let size = newSize ?? frame.size
@@ -511,7 +651,6 @@ class TouchBarWindow: NSPanel, NSWindowDelegate {
             return .zero
         }
         
-        let size = newSize ?? frame.size
         let referenceFrame = referernceFrame(for: forDocking, for: forHiding, in: screen)
         let confineFrame = confinementFrame(for: forDocking, for: forHiding, in: screen)
         
@@ -576,8 +715,8 @@ class TouchBarWindow: NSPanel, NSWindowDelegate {
             size = frame.size
         }
         
-        let frame = screen.frame
-        let visibleFrame = screen.visibleFrame
+        let screenFrame = screen.frame
+        //let visibleFrame = screen.visibleFrame
         
         switch(forDocking, forHiding) {
         case (.floating, _):
@@ -587,171 +726,43 @@ class TouchBarWindow: NSPanel, NSWindowDelegate {
                 .sizeConfinedRect(with: confinementFrame(for: forDocking, for: forHiding, in: screen))
                 .alignedRect(alignX: .center, alignY: .top(padding: 0),
                              with: referernceFrame(for: forDocking, for: forHiding, in: screen))
-                .expandedRect(options: [.top(padding: -1)], with: screen.frame)
+                .expandedRect(options: [.top(padding: -1)], with: screenFrame)
         case (.dockedToTop, false):
             return NSRect(origin: .zero, size: size)
                 .sizeConfinedRect(with: confinementFrame(for: forDocking, for: forHiding, in: screen))
                 .alignedRect(alignX: .center, alignY: .top(padding: 0),
                              with: referernceFrame(for: forDocking, for: forHiding, in: screen))
-                .expandedRect(options: [.top(padding: -1)], with: screen.frame)
+                .expandedRect(options: [.top(padding: -1)], with: screenFrame)
         case (.dockedToBottom, true):
             return NSRect(origin: .zero, size: size)
                 .sizeConfinedRect(with: confinementFrame(for: forDocking, for: forHiding, in: screen))
                 .alignedRect(alignX: .center, alignY: .bottom(padding: 0),
                              with: referernceFrame(for: forDocking, for: forHiding, in: screen))
-                .expandedRect(options: [.bottom(padding: 0)], with: screen.frame)
+                .expandedRect(options: [.bottom(padding: 0)], with: screenFrame)
         case (.dockedToBottom, false):
             return NSRect(origin: .zero, size: size)
                 .sizeConfinedRect(with: confinementFrame(for: forDocking, for: forHiding, in: screen))
                 .alignedRect(alignX: .center, alignY: .bottom(padding: 0),
                              with: referernceFrame(for: forDocking, for: forHiding, in: screen))
-                .expandedRect(options: [.bottom(padding: 0)], with: screen.frame)
+                .expandedRect(options: [.bottom(padding: 0)], with: screenFrame)
         }
     }
-    // Properties & funcs for Mouse Detection
-    private var isMouseDetected: Bool {
-        //NSLog("\(NSScreen.screens.map{return $0.visibleFrame}), \(detectionRects)")
-        //NSLog("\(NSEvent.mouseLocation), \(detectionRects.contains{$0.contains(NSEvent.mouseLocation)})")
-        return NSScreen.screens.map({detectionFrame(for: docking, for: hiding, in: $0).contains(NSEvent.mouseLocation)}).reduce(false, {$0 || $1})
-        
-        //return detectionRects.contains{$0.contains(NSEvent.mouseLocation)}
-    }
-    
-    // Slot funcs for UI Elements
-    @objc func dockDownPressed(_: NSButton) {
-        docking = .dockedToBottom
-    }
-    @objc func dockUpPressed(_: NSButton) {
-        docking = .dockedToTop
-    }
-    @objc func viewSideButtonPressed(_ sender: NSButton) {
-        if let event = NSApp.currentEvent {
-            
-            let isOptionKeyPressed = event.modifierFlags.contains(NSEvent.ModifierFlags.option)
-            let isComandKeyPressed = event.modifierFlags.contains(NSEvent.ModifierFlags.command)
-            
-            switch (isComandKeyPressed, isOptionKeyPressed) {
-            case (true, _):
-                TouchBarContextMenu.showContextMenu(sender)
-            case (false, true):
-                close()
-            case (false, false):
-                docking = .floating
-            }
-        }
-    }
-    @objc func settingsPressed(_ sender: NSButton) {
-        TouchBarContextMenu.showContextMenu(sender)
-    }
-    
-    // Convenient init
-    init() {
-        super.init(
-            contentRect: .zero,
-            styleMask: [
-                //.titled,
-                .closable,
-                .nonactivatingPanel,
-                .hudWindow, // Setting this flag always renders title bar in darkAqua...
-                .resizable,
-                .utilityWindow,
-            ],
-            backing: .buffered,
-            defer: false
-        )
-        cyclicalUpdateTimer = {
-            Timer(timeInterval: 0.5, repeats: true) {timer in
-                self.handleCyclicalUpdate()
-            }
-        }()
-        delegate = self
-        isReleasedWhenClosed = false
-        collectionBehavior = .canJoinAllSpaces
-        title = "Touch Bar".localized
-        level = .assistiveTechHigh
-        backgroundColor = .clear
-        isOpaque = false
-        isRestorable = true
-        hidesOnDeactivate = false
-        worksWhenModal = true
-        acceptsMouseMovedEvents = true
-        isMovableByWindowBackground = false
-        appearance = NSAppearance(named: NSAppearance.Name.darkAqua) // As `.hudWindow` flag set, we always render the window in darkAqua
-        
-        contentView = NSView()
-    }
-    //private static let instance = TouchBarWindow()
-    
-    // Class funcs for accessing singleton object
-    func setUp() {
-        let previousDocking = Defaults[.windowDocking]
-        let previousFrame = Defaults[.lastWindowFrame]
-        
-        switch previousDocking {
-        case .floating:
-            hasTitle = true
-            setFrame(previousFrame, display: true)
-        case .dockedToTop:
-            hasTitle = false
-            setFrame(previousFrame, display: true)
-        case .dockedToBottom:
-            hasTitle = false
-            setFrame(previousFrame, display: true)
-        }
-        
-        //docking = previousDocking
-        
-        // Add cyclicalObserver
-        cyclicalUpdateTimer = Timer(timeInterval: 0.5, repeats: true) {[weak self] timer in
-            self?.handleCyclicalUpdate()
-        }
-        
-        // Show instance
-        orderFrontRegardless()
-    }
-    func finishUp() {
-        // Remove cyclicalObserver
-        cyclicalUpdateTimer = nil
-        
-        // save last float position
-        if docking == .floating {
-            Defaults[.lastFloatingPosition] = frame.origin
-        }
-        
-        Defaults[.lastWindowFrame] = frame
-    }
-    
-    
-}
-
-class TouchBarWindowManager {
-    static let instance = TouchBarWindow()
-    
-    static var isClosed: Bool {
-        return instance.isClosed
-    }
-    
-    static var showOnAllDesktops = true {
-        didSet {
-            if showOnAllDesktops {
-                instance.collectionBehavior = .canJoinAllSpaces
-            } else {
-                instance.collectionBehavior = .moveToActiveSpace
-            }
-        }
-    }
-    static var dockSetting: TouchBarWindow.Docking = .floating {
-        didSet {
-            instance.docking = dockSetting
-        }
-    }
-    
-    static func setUp() {
-        instance.setUp()
-    }
-    
-    static func finishUp() {
-        instance.finishUp()
-    }
-    
-}
+ 
+ /*
+ // Properties that holds the last screen the window is on
+ var lastScreen: NSScreen? {
+     get {
+         if let screen = screen {
+             self.lastScreen = screen
+             return screen
+         }
+         else {
+             return self.lastScreen
+         }
+     }
+     set {}
+ }
+ */
+ // private let screenDesignation: NSScreen
+ 
+*/

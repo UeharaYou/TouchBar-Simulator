@@ -36,3 +36,11 @@ class TouchBarSimulatorApplication: NSObject, NSApplicationDelegate{
     }
    
 }
+
+/*
+ NSWindow `isReleasedOnClosed` is cursed!!!!
+ Three ways things can go wrong:
+ 1. Window has strong reference, close only, then access again: Reference retained but resources freed. => Accessing freed resources.
+ 2. Window has strong reference, close and de-reference immediately: Window released (for ARC) before the main runloop actually handles the closure. => App runloop accessing freed resources.
+ 3. Window has weak reference: Window never retained after returning from caller that constructed it.
+ */
